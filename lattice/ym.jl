@@ -1,5 +1,15 @@
 import Base: iterate, read, rand, write, zero
 
+using LinearAlgebra: I
+
+struct UnitarySampler
+    V::Array{ComplexF64,3}
+    function UnitarySampler(N::Int)
+        # TODO
+    end
+end
+
+# TODO support a different temperature direction
 struct Lattice
     L::Int
     g::Float64
@@ -15,6 +25,10 @@ volume(lat::Lattice)::Int = lat.L^lat.d
 
 function iterate(lat::Lattice, i::Int64=0)
     i < volume(lat) ? (i+1,i+1) : nothing
+end
+
+function step(lat::Lattice, i::Int, μ::Int; n::Int=1)
+    # TODO
 end
 
 struct Configuration{lat}
@@ -35,6 +49,16 @@ function rand(::Type{Configuration{lat}})::Configuration{lat} where {lat}
 end
 
 function heatbath!(cfg::Configuration, lat::Lattice, i::Int, μ::Int)
+    # The local action is -1/g² Re Tr A U. First we must compute the "staple" A.
+    A = zeros(ComplexF64, (lat.N,lat.N))
+    for ν in 1:lat.d
+        if μ == ν
+            continue
+        end
+        B = I
+        # TODO
+        A += B
+    end
     # TODO
 end
 
