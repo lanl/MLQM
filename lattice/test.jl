@@ -22,3 +22,30 @@ include("ym.jl")
     end
 end
 
+@testset verbose=true "unitarize!" begin
+    @testset "is unitary" begin
+        for N in 2:10
+            U = randn(ComplexF64, (N,N))
+            unitarize!(U)
+            M = U'U
+            for n in 1:N
+                for m in 1:N
+                    if n == m
+                        @test abs(M[n,m] - 1) < 1e-8
+                    else
+                        @test abs(M[n,m]) < 1e-8
+                    end
+                end
+            end
+        end
+    end
+
+    @testset "no allocations" begin
+        for N in 2:10
+            U = randn(ComplexF64, (N,N))
+            allocs = @allocations unitarize!(U)
+            @test allocs == 0
+        end
+    end
+end
+

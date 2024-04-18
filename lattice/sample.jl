@@ -3,6 +3,7 @@
 using ArgParse
 using Dates: now
 
+include("dos.jl")
 include("ym.jl")
 
 function main()
@@ -30,29 +31,23 @@ function main()
     lat = Lattice(args["L"], args["g"])
     cfg = zero(Configuration{lat})
 
-    latmeta = ("START" => start,
-               "L" => lat.L,
-               "g" => lat.g,
-               "N" => lat.N,
-               "d" => lat.d
-              )
+    latmeta = Dict("START" => start,
+                   "L" => lat.L,
+                   "g" => lat.g,
+                   "N" => lat.N,
+                   "d" => lat.d
+                  )
+    dos = DOS(args["sampleDirectory"], latmeta)
 
+    heatbath! = Heatbath{lat}()
     for n in 1:10
         for s in 1:10
-            sweep!(cfg, lat)
+            heatbath!(cfg)
         end
-        cfgmeta = ("NOW" => now(),
-                   "n" => n
-                  )
-        open(args["sampleDirectory"]*"/cfg$n", "w") do f
-            for (k,v) in latmeta
-                println(f, "$k $v")
-            end
-            println(f, "")
-            for (k,v) in cfgmeta
-                println(f, "$k $v")
-            end
-            println(f, "")
+        cfgmeta = Dict("NOW" => now(),
+                       "n" => n
+                      )
+        save("cfg$n", dos, cfgmeta) do f
             write(f, cfg)
         end
     end

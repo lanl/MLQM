@@ -2,6 +2,7 @@
 
 using ArgParse
 
+include("dos.jl")
 include("ym.jl")
 
 function main()
@@ -16,8 +17,11 @@ function main()
         parse_args(s)
     end
 
-    for fn in readdir(args["sampleDirectory"])
-        open(args["sampleDirectory"] * "/" * fn) do f
+    dos = DOS(args["sampleDirectory"])
+    lat = Lattice(dos["L"], dos["g"], dos["N"], dos["d"])
+    for sample in dos
+        cfg = open(sample) do f
+            read(f, Configuration{lat})
         end
     end
 end
