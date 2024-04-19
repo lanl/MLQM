@@ -5,6 +5,16 @@ using ArgParse
 include("dos.jl")
 include("ym.jl")
 
+function bootstrap(f, x; K::Int=1000)
+    m = f(x)
+    y = Vector{typeof(m)}(undef, K)
+    for k in 1:K
+        y[k] = f(rand(x, length(x)))
+    end
+    return m, std(y)
+end
+bootstrap(x; K) = bootstrap(mean, x; K=K)
+
 function main()
     args = let
         s = ArgParseSettings()
