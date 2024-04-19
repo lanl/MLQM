@@ -2,7 +2,15 @@
 
 using Test
 
+include("ising.jl")
+include("scalar.jl")
 include("ym.jl")
+
+@testset "Ising" begin
+end
+
+@testset "Scalar" begin
+end
 
 @testset "Serializing configurations" begin
     io = IOBuffer()
