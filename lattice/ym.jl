@@ -163,7 +163,11 @@ end
 
 function action(cfg::Configuration{lat})::Float64 where {lat}
     for i in lat
-        # TODO
+        for μ in 1:lat.d
+            for ν in 1:(μ-1)
+                # TODO
+            end
+        end
     end
 end
 
