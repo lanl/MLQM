@@ -8,6 +8,8 @@ include("ising.jl")
 include("scalar.jl")
 include("ym.jl")
 
+using .YangMills
+
 function main()
     args = let
         s = ArgParseSettings()

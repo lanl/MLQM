@@ -9,6 +9,8 @@ include("scalar.jl")
 include("qcd.jl")
 include("ym.jl")
 
+using .YangMills
+
 @testset verbose=true "QCD" begin
 end
 
@@ -143,7 +145,7 @@ end
                 μ = rand(1:lat.d)
                 i = rand(1:volume(lat))
                 n = rand(-lat.L:lat.L)
-                j = step(lat, i, μ, n=n)
+                j = trans(lat, i, μ, n=n)
                 for ν in 1:lat.d
                     x = coordinate(lat, i, ν)
                     y = coordinate(lat, j, ν)

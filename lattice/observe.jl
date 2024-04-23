@@ -5,6 +5,8 @@ using ArgParse
 include("dos.jl")
 include("ym.jl")
 
+using .YangMills
+
 function bootstrap(f, x; K::Int=1000)
     m = f(x)
     y = Vector{typeof(m)}(undef, K)

@@ -1,7 +1,15 @@
+module YangMills
+
 import Base: iterate, read, rand, write, zero
 
 using LinearAlgebra: ⋅,I,mul!,norm,tr,adjoint!
 using Random: randn!
+
+export UnitarySampler, SpecialUnitarySampler
+export unitarize!, resample!
+export Configuration, Lattice, Observer, Heatbath
+export volume, trans, action, coordinate
+export gauge!, calibrate!
 
 function unitarize!(U::AbstractArray{ComplexF64,2})
     N = size(U)[1]
@@ -152,7 +160,7 @@ function iterate(lat::Lattice, i::Int64=0)
     i < volume(lat) ? (i+1,i+1) : nothing
 end
 
-function step(lat::Lattice, i::Int, μ::Int; n::Int=1)::Int
+function trans(lat::Lattice, i::Int, μ::Int; n::Int=1)::Int
     i -= 1
     v = lat.L^(μ-1)
     V = if μ == lat.d
@@ -214,7 +222,7 @@ function gauge!(cfg::Configuration{lat}, i::Int, U::AbstractMatrix{ComplexF64}, 
     adjoint!(V, U)
     U .= V
     for μ in 1:lat.d
-        j = step(lat, i, μ, n=-1)
+        j = trans(lat, i, μ, n=-1)
         @views mul!(V, cfg.U[:,:,μ,j], U)
         cfg.U[:,:,μ,j] .= V
     end
@@ -268,15 +276,15 @@ function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
     for i in lat
         for μ in 1:lat.d
             # The local action is -1/g² Re Tr A U. First compute the staple A.
-            iμ = step(lat, i, μ)
+            iμ = trans(lat, i, μ)
             hb.A .= 0
             for ν in 1:lat.d
                 if μ == ν
                     continue
                 end
-                iν = step(lat, i, ν, n=1)
-                iν′ = step(lat, i, ν, n=-1)
-                iμν′ = step(lat, iμ, ν, n=-1)
+                iν = trans(lat, i, ν, n=1)
+                iν′ = trans(lat, i, ν, n=-1)
+                iμν′ = trans(lat, iμ, ν, n=-1)
 
                 adjoint!(hb.D, cfg.U[:,:,μ,iν])
                 mul!(hb.C, hb.D, cfg.U[:,:,ν,iμ])
@@ -335,8 +343,8 @@ function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat
     @views for i in lat
         for μ in 1:lat.d
             for ν in 1:(μ-1)
-                iμ = step(lat, i, μ)
-                iν = step(lat, i, ν)
+                iμ = trans(lat, i, μ)
+                iν = trans(lat, i, ν)
                 # Evaluate: U(i,ν)† U(iν,μ)† U(iμ,ν) U(i,μ)
                 # This is: (U(iν,μ) U(i,ν))† U(iμ,ν) U(i,μ)
                 mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
@@ -380,5 +388,7 @@ function read(io::IO, T::Type{Configuration{lat}})::Configuration{lat} where {la
         end
     end
     return cfg
+end
+
 end
 
