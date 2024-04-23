@@ -28,11 +28,13 @@ function main()
     end
 
     dos = DOS(args["sampleDirectory"])
-    lat = Lattice(dos["L"], dos["g"], dos["N"], dos["d"])
+    lat = Lattice(dos["L"], dos["g"]; N=dos["N"], d=dos["d"], β=dos["β"])
+    obs = Observer{lat}()
     for sample in dos
         cfg = open(sample) do f
             read(f, Configuration{lat})
         end
+        println(action(obs,cfg))
     end
 end
 

@@ -1,6 +1,6 @@
 import Base: iterate, read, rand, write, zero
 
-using LinearAlgebra: ⋅,I,mul!,norm
+using LinearAlgebra: ⋅,I,mul!,norm,tr,adjoint!
 using Random: randn!
 
 function unitarize!(U::AbstractArray{ComplexF64,2})
@@ -19,22 +19,23 @@ function unitarize!(U::AbstractArray{ComplexF64,2})
     end
 end
 
-struct UnitarySampler
+mutable struct UnitarySampler
     V::Array{ComplexF64,3}
     M::Array{ComplexF64,3}
+    σ::Float64
     function UnitarySampler(N::Int, σ::Float64; K::Int=100)
         if K < 2
             error("K≥2 required")
         end
         V = zeros(ComplexF64, (N,N,K))
         M = zeros(ComplexF64, (N,N,3))
-        s = new(V, M)
-        resample(s, σ)
+        s = new(V, M, σ)
+        resample!(s, σ)
         return s
     end
 end
 
-function resample(s::UnitarySampler, σ::Float64)
+function resample!(s::UnitarySampler, σ::Float64)
     N = size(s.V)[1]
     K = size(s.V)[end]
     for k in 1:K
@@ -62,9 +63,72 @@ function resample(s::UnitarySampler, σ::Float64)
         # Unitarize.
         @views unitarize!(s.V[:,:,k])
     end
+    s.σ = σ
 end
 
 function (s::UnitarySampler)(U::AbstractArray{ComplexF64,2})
+    K = size(s.V)[end]
+    k = rand(1:K)
+    @views U .= s.V[:,:,k]
+end
+
+mutable struct SpecialUnitarySampler
+    V::Array{ComplexF64,3}
+    M::Array{ComplexF64,3}
+    σ::Float64
+    function SpecialUnitarySampler(N::Int, σ::Float64; K::Int=100)
+        if K < 2
+            error("K≥2 required")
+        end
+        V = zeros(ComplexF64, (N,N,K))
+        M = zeros(ComplexF64, (N,N,3))
+        s = new(V, M, σ)
+        resample!(s, σ)
+        return s
+    end
+end
+
+function resample!(s::SpecialUnitarySampler, σ::Float64)
+    N = size(s.V)[1]
+    K = size(s.V)[end]
+    for k in 1:K
+        # The generator is a random traceless Hermitian matrix.
+        @views randn!(s.M[:,:,1])
+        # Hermitize:
+        for i in 1:N
+            for j in 1:i
+                m = σ * (s.M[i,j,1] + conj(s.M[j,i,1]))/2
+                s.M[i,j,1] = m
+                s.M[j,i,1] = conj(m)
+            end
+        end
+        # Remove the trace:
+        trace::Float64 = 0.
+        for i in 1:N
+            trace += s.M[i,i,1]
+        end
+        for i in 1:N
+            s.M[i,i,1] -= trace/N
+        end
+        # Exponentiate.
+        s.M[:,:,2] .= 0
+        for n in 1:N
+            s.M[n,n,2] = 1
+        end
+        @views s.V[:,:,k] .= s.M[:,:,2]
+        for c in 1:8
+            @views mul!(s.M[:,:,3], s.M[:,:,1], s.M[:,:,2])
+            @views s.M[:,:,2] .= s.M[:,:,3]
+            @views s.M[:,:,2] .*= 1im/c
+            @views s.V[:,:,k] .+= s.M[:,:,2]
+        end
+        # Unitarize.
+        @views unitarize!(s.V[:,:,k])
+    end
+    s.σ = σ
+end
+
+function (s::SpecialUnitarySampler)(U::AbstractArray{ComplexF64,2})
     K = size(s.V)[end]
     k = rand(1:K)
     @views U .= s.V[:,:,k]
@@ -117,6 +181,13 @@ end
 function zero(::Type{Configuration{lat}})::Configuration{lat} where {lat}
     V = volume(lat)
     U = zeros(ComplexF64, (lat.N,lat.N,lat.d,V))
+    for i in 1:V
+        for μ in 1:lat.d
+            for a in 1:lat.N
+                U[a,a,μ,i] = 1
+            end
+        end
+    end
     return Configuration{lat}(U)
 end
 
@@ -131,44 +202,157 @@ function rand(::Type{Configuration{lat}})::Configuration{lat} where {lat}
     return Configuration{lat}(U)
 end
 
-struct Heatbath{lat}
-    sample!::UnitarySampler
-    A::Matrix{ComplexF64}
-    B::Matrix{ComplexF64}
-    function Heatbath{lat}() where {lat}
-        sample! = UnitarySampler(lat.N, lat.g)
-        A = zeros(ComplexF64, (lat.N,lat.N))
-        B = zeros(ComplexF64, (lat.N,lat.N))
-        new(sampler, A)
+# Perform a gauge transformation.
+function gauge!(cfg::Configuration{lat}, i::Int, U::AbstractMatrix{ComplexF64}, V=nothing) where {lat}
+    if isnothing(V)
+        V = zeros(ComplexF64, (lat.N,lat.N))
+    end
+    for μ in 1:lat.d
+        @views mul!(V, U, cfg.U[:,:,μ,i])
+        cfg.U[:,:,μ,i] .= V
+    end
+    adjoint!(V, U)
+    U .= V
+    for μ in 1:lat.d
+        j = step(lat, i, μ, n=-1)
+        @views mul!(V, cfg.U[:,:,μ,j], U)
+        cfg.U[:,:,μ,j] .= V
     end
 end
 
-function (hb::Heatbath{lat})(cfg::Configuration{lat}) where {lat}
+struct Heatbath{lat}
+    sample!::SpecialUnitarySampler
+    A::Matrix{ComplexF64}
+    B::Matrix{ComplexF64}
+    C::Matrix{ComplexF64}
+    D::Matrix{ComplexF64}
+    function Heatbath{lat}() where {lat}
+        sample! = SpecialUnitarySampler(lat.N, lat.g)
+        A = zeros(ComplexF64, (lat.N,lat.N))
+        B = zeros(ComplexF64, (lat.N,lat.N))
+        C = zeros(ComplexF64, (lat.N,lat.N))
+        D = zeros(ComplexF64, (lat.N,lat.N))
+        new(sample!, A, B, C, D)
+    end
+end
+
+function trmul(A::AbstractMatrix{ComplexF64}, B::AbstractMatrix{ComplexF64})::ComplexF64
+    n, m = size(A)
+    @assert size(B) == (m,n)
+    r::ComplexF64 = 0.
+    for i in 1:n
+        for j in 1:m
+            r += A[i,j] * B[j,i]
+        end
+    end
+    return r
+end
+
+function calibrate!(hb!::Heatbath{lat}, cfg::Configuration{lat}) where {lat}
+    ar = hb!(cfg)
+    while ar < 0.3 || ar > 0.5
+        if ar < 0.3
+            hb!.sample!.σ *= 0.95
+        end
+        if ar > 0.5
+            hb!.sample!.σ *= 1.05
+        end
+        resample!(hb!.sample!, hb!.sample!.σ)
+        ar = hb!(cfg)
+    end
+end
+
+function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
     tot = 0
     acc = 0
     for i in lat
         for μ in 1:lat.d
             # The local action is -1/g² Re Tr A U. First compute the staple A.
+            iμ = step(lat, i, μ)
             hb.A .= 0
             for ν in 1:lat.d
                 if μ == ν
                     continue
                 end
-                # TODO compute sample
+                iν = step(lat, i, ν, n=1)
+                iν′ = step(lat, i, ν, n=-1)
+                iμν′ = step(lat, iμ, ν, n=-1)
+
+                adjoint!(hb.D, cfg.U[:,:,μ,iν])
+                mul!(hb.C, hb.D, cfg.U[:,:,ν,iμ])
+                adjoint!(hb.D, cfg.U[:,:,ν,i])
+                mul!(hb.B, hb.D, hb.C)
+                hb.A .+= hb.B
+
+                adjoint!(hb.B, cfg.U[:,:,ν,iμν′])
+                adjoint!(hb.D, cfg.U[:,:,μ,iν′])
+                mul!(hb.C, hb.D, hb.B)
+                mul!(hb.B, cfg.U[:,:,ν,iν], hb.C)
+                hb.A .+= hb.B
             end
-            # TODO Repeatedly propose and acc/rej
+            # Current action.
+            S = -1/lat.g^2 * real(trmul(cfg.U[:,:,μ,i], hb.A))
+            for p in 1:lat.N^2
+                # Propose. hb.D stores the unitary; hb.C stores the new link.
+                hb.sample!(hb.D)
+                mul!(hb.C, hb.D, cfg.U[:,:,μ,i])
+                S′ = -1/lat.g^2 * real(trmul(hb.C, hb.A))
+
+                # Accept/reject
+                tot += 1
+                if rand() < exp(S-S′)
+                    acc += 1
+                    actold = action(cfg) # TODO
+                    cfg.U[:,:,μ,i] .= hb.C
+                    actnew = action(cfg) # TODO
+                    println(S′-S, "     ", actnew-actold) # TODO
+                    S = S′
+                end
+            end
         end
+    end
+    return acc / tot
+end
+
+struct Observer{lat}
+    U::Matrix{ComplexF64}
+    V::Matrix{ComplexF64}
+    function Observer{lat}() where {lat}
+        U = zeros(ComplexF64, (lat.N,lat.N))
+        V = zeros(ComplexF64, (lat.N,lat.N))
+        new(U,V)
     end
 end
 
-function action(cfg::Configuration{lat})::Float64 where {lat}
-    for i in lat
+function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
+    r = Dict{String,Any}()
+    r["action"] = action(obs,cfg)
+    return r
+end
+
+function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+    S::Float64 = 0.
+    @views for i in lat
         for μ in 1:lat.d
             for ν in 1:(μ-1)
-                # TODO
+                iμ = step(lat, i, μ)
+                iν = step(lat, i, ν)
+                # Evaluate: U(i,ν)† U(iν,μ)† U(iμ,ν) U(i,μ)
+                # This is: (U(iν,μ) U(i,ν))† U(iμ,ν) U(i,μ)
+                mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
+                adjoint!(obs.V, obs.U)
+                mul!(obs.U, obs.V, cfg.U[:,:,ν,iμ])
+                mul!(obs.V, obs.U, cfg.U[:,:,μ,i])
+                S += 1/lat.g^2 * (lat.N - real(tr(obs.V)))
             end
         end
     end
+    return S
+end
+
+function action(cfg::Configuration{lat})::Float64 where {lat}
+    obs = Observer{lat}()
+    action(obs, cfg)
 end
 
 function write(io::IO, cfg::Configuration{lat}) where {lat}
@@ -195,6 +379,6 @@ function read(io::IO, T::Type{Configuration{lat}})::Configuration{lat} where {la
             end
         end
     end
-    cfg
+    return cfg
 end
 

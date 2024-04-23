@@ -1,5 +1,7 @@
 module Scalar
 
+import Base: iterate, rand, read, write, zero
+
 struct Lattice
     L::Int
     β::Int
@@ -25,7 +27,24 @@ function zero(::Type{Configuration{lat}})::Configuration{lat} where {lat}
     return Configuration{lat}(ϕ)
 end
 
-function action(cfg::Configuration{lat})::Float64 where {lat}
+struct Observer{lat}
+end
+
+function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
+    r = Dict{String,Any}()
+    r["action"] = action(obs,cfg)
+    return r
+end
+
+function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+    # TODO
+end
+
+function write(io::IO, cfg::Configuration{lat}) where {lat}
+    # TODO
+end
+
+function read(io::IO, T::Type{Configuration{lat}})::Configuration{lat} where {lat}
     # TODO
 end
 

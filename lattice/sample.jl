@@ -62,7 +62,8 @@ function main()
     dos = DOS(args["sampleDirectory"], latmeta)
 
     heatbath! = Heatbath{lat}()
-    for n in 1:10
+    calibrate!(heatbath!, cfg)
+    for n in 1:30
         for s in 1:10
             heatbath!(cfg)
         end
