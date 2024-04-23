@@ -2,13 +2,13 @@ module YangMills
 
 import Base: iterate, read, rand, write, zero
 
-using LinearAlgebra: ⋅,I,mul!,norm,tr,adjoint!
+using LinearAlgebra: ⋅,I,det,mul!,norm,tr,adjoint!
 using Random: randn!
 
 export UnitarySampler, SpecialUnitarySampler
-export unitarize!, resample!
+export unitarize!, sunitarize!, resample!
 export Configuration, Lattice, Observer, Heatbath
-export volume, trans, action, coordinate
+export volume, trans, action, coordinate, plaquette
 export gauge!, calibrate!
 
 function unitarize!(U::AbstractArray{ComplexF64,2})
@@ -25,6 +25,13 @@ function unitarize!(U::AbstractArray{ComplexF64,2})
         nrm = norm(@view U[:,n])
         @views U[:,n] ./= nrm
     end
+end
+
+function sunitarize!(U::AbstractArray{ComplexF64,2})
+    N = size(U)[1]
+    unitarize!(U)
+    d = det(U)
+    U ./= d^(1/N)
 end
 
 mutable struct UnitarySampler
@@ -216,14 +223,14 @@ function gauge!(cfg::Configuration{lat}, i::Int, U::AbstractMatrix{ComplexF64}, 
         V = zeros(ComplexF64, (lat.N,lat.N))
     end
     for μ in 1:lat.d
-        @views mul!(V, U, cfg.U[:,:,μ,i])
+        @views mul!(V, cfg.U[:,:,μ,i], U)
         cfg.U[:,:,μ,i] .= V
     end
     adjoint!(V, U)
     U .= V
     for μ in 1:lat.d
         j = trans(lat, i, μ, n=-1)
-        @views mul!(V, cfg.U[:,:,μ,j], U)
+        @views mul!(V, U, cfg.U[:,:,μ,j])
         cfg.U[:,:,μ,j] .= V
     end
 end
@@ -295,7 +302,7 @@ function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
                 adjoint!(hb.B, cfg.U[:,:,ν,iμν′])
                 adjoint!(hb.D, cfg.U[:,:,μ,iν′])
                 mul!(hb.C, hb.D, hb.B)
-                mul!(hb.B, cfg.U[:,:,ν,iν], hb.C)
+                mul!(hb.B, cfg.U[:,:,ν,iν′], hb.C)
                 hb.A .+= hb.B
             end
             # Current action.
@@ -310,10 +317,7 @@ function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
                 tot += 1
                 if rand() < exp(S-S′)
                     acc += 1
-                    actold = action(cfg) # TODO
                     cfg.U[:,:,μ,i] .= hb.C
-                    actnew = action(cfg) # TODO
-                    println(S′-S, "     ", actnew-actold) # TODO
                     S = S′
                 end
             end
@@ -336,6 +340,18 @@ function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
     return r
+end
+
+function plaquette(obs::Observer{lat}, cfg::Configuration{lat}, i::Int, μ::Int, ν::Int)::ComplexF64 where {lat}
+    iμ = trans(lat, i, μ)
+    iν = trans(lat, i, ν)
+    # Evaluate: U(i,ν)† U(iν,μ)† U(iμ,ν) U(i,μ)
+    # This is: (U(iν,μ) U(i,ν))† U(iμ,ν) U(i,μ)
+    mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
+    adjoint!(obs.V, obs.U)
+    mul!(obs.U, obs.V, cfg.U[:,:,ν,iμ])
+    mul!(obs.V, obs.U, cfg.U[:,:,μ,i])
+    return tr(obs.V)
 end
 
 function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}

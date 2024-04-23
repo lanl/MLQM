@@ -80,6 +80,33 @@ end
         end
     end
 
+    @testset verbose=true "sunitarize!" begin
+        @testset "is unitary" begin
+            for N in 2:10
+                U = randn(ComplexF64, (N,N))
+                sunitarize!(U)
+                M = U'U
+                for n in 1:N
+                    for m in 1:N
+                        if n == m
+                            @test abs(M[n,m] - 1) < 1e-8
+                        else
+                            @test abs(M[n,m]) < 1e-8
+                        end
+                    end
+                end
+            end
+        end
+
+        @testset "is special" begin
+            for N in 2:10
+                U = randn(ComplexF64, (N,N))
+                sunitarize!(U)
+                @test det(U) ≈ 1.
+            end
+        end
+    end
+
     @testset verbose=true "UnitarySampler" begin
         N = 3
         s! = UnitarySampler(N, 0.2)
@@ -177,7 +204,7 @@ end
                 i = rand(1:volume(lat))
                 U = rand(ComplexF64, (lat.N,lat.N))
                 obs1 = obs(cfg)
-                unitarize!(U)
+                sunitarize!(U)
                 gauge!(cfg, i, U)
                 obs2 = obs(cfg)
                 @test abs(obs1["action"] - obs2["action"]) / obs1["action"] < 1e-6

@@ -51,7 +51,7 @@ function main()
     else
         Lattice(args["L"], args["g"], β=args["T"], N=args["N"], d=args["d"])
     end
-    cfg = zero(Configuration{lat})
+    cfg = rand(Configuration{lat})
 
     latmeta = Dict("START" => start,
                    "MACHINE" => Sys.MACHINE,
@@ -65,7 +65,7 @@ function main()
 
     heatbath! = Heatbath{lat}()
     calibrate!(heatbath!, cfg)
-    for n in 1:30
+    for n in 1:1000
         for s in 1:10
             heatbath!(cfg)
         end
