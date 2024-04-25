@@ -7,7 +7,7 @@ using Random: randn!
 
 export UnitarySampler, SpecialUnitarySampler
 export unitarize!, sunitarize!, resample!
-export Configuration, Lattice, Observer, Heatbath
+export Configuration, Lattice, Observer, Heatbath, PseudoHeatbath
 export volume, trans, action, coordinate, plaquette
 export gauge!, calibrate!
 
@@ -189,6 +189,8 @@ function coordinate(lat::Lattice, i::Int, μ::Int)::Int
     end
 end
 
+wilson_beta(lat::Lattice)::Float64 = 2*lat.N/(lat.g^2)
+
 struct Configuration{lat}
     U::Array{ComplexF64,4}
 end
@@ -280,50 +282,58 @@ end
 function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
     tot = 0
     acc = 0
-    for i in lat
-        for μ in 1:lat.d
-            # The local action is -1/g² Re Tr A U. First compute the staple A.
-            iμ = trans(lat, i, μ)
-            hb.A .= 0
-            for ν in 1:lat.d
-                if μ == ν
-                    continue
-                end
-                iν = trans(lat, i, ν, n=1)
-                iν′ = trans(lat, i, ν, n=-1)
-                iμν′ = trans(lat, iμ, ν, n=-1)
-
-                adjoint!(hb.D, cfg.U[:,:,μ,iν])
-                mul!(hb.C, hb.D, cfg.U[:,:,ν,iμ])
-                adjoint!(hb.D, cfg.U[:,:,ν,i])
-                mul!(hb.B, hb.D, hb.C)
-                hb.A .+= hb.B
-
-                adjoint!(hb.B, cfg.U[:,:,ν,iμν′])
-                adjoint!(hb.D, cfg.U[:,:,μ,iν′])
-                mul!(hb.C, hb.D, hb.B)
-                mul!(hb.B, cfg.U[:,:,ν,iν′], hb.C)
-                hb.A .+= hb.B
+    @views for i′ in lat
+        i = rand(1:volume(lat))
+        μ = rand(1:lat.d)
+        # The local action is -1/(2*g²) Re Tr A U. First compute the staple A.
+        iμ = trans(lat, i, μ)
+        hb.A .= 0
+        for ν in 1:lat.d
+            if μ == ν
+                continue
             end
-            # Current action.
-            S = -1/lat.g^2 * real(trmul(cfg.U[:,:,μ,i], hb.A))
-            for p in 1:lat.N^2
-                # Propose. hb.D stores the unitary; hb.C stores the new link.
-                hb.sample!(hb.D)
-                mul!(hb.C, hb.D, cfg.U[:,:,μ,i])
-                S′ = -1/lat.g^2 * real(trmul(hb.C, hb.A))
+            iν = trans(lat, i, ν, n=1)
+            iν′ = trans(lat, i, ν, n=-1)
+            iμν′ = trans(lat, iμ, ν, n=-1)
 
-                # Accept/reject
-                tot += 1
-                if rand() < exp(S-S′)
-                    acc += 1
-                    cfg.U[:,:,μ,i] .= hb.C
-                    S = S′
-                end
+            adjoint!(hb.D, cfg.U[:,:,μ,iν])
+            mul!(hb.C, hb.D, cfg.U[:,:,ν,iμ])
+            adjoint!(hb.D, cfg.U[:,:,ν,i])
+            mul!(hb.B, hb.D, hb.C)
+            hb.A .+= hb.B
+
+            adjoint!(hb.B, cfg.U[:,:,ν,iμν′])
+            adjoint!(hb.D, cfg.U[:,:,μ,iν′])
+            mul!(hb.C, hb.D, hb.B)
+            mul!(hb.B, cfg.U[:,:,ν,iν′], hb.C)
+            hb.A .+= hb.B
+        end
+        # Current action.
+        S = -2/(lat.g^2) * real(trmul(cfg.U[:,:,μ,i], hb.A))
+        for p in 1:2*lat.N^2
+            # Propose. hb.D stores the unitary; hb.C stores the new link.
+            hb.sample!(hb.D)
+            mul!(hb.C, hb.D, cfg.U[:,:,μ,i])
+            S′ = -2/lat.g^2 * real(trmul(hb.C, hb.A))
+
+            # Accept/reject
+            tot += 1
+            if rand() < exp(S-S′)
+                acc += 1
+                cfg.U[:,:,μ,i] .= hb.C
+                S = S′
             end
         end
     end
     return acc / tot
+end
+
+struct PseudoHeatbath{lat}
+    # TODO
+end
+
+function (phb::PseudoHeatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
+    # TODO
 end
 
 struct Observer{lat}
@@ -347,11 +357,11 @@ function plaquette(obs::Observer{lat}, cfg::Configuration{lat}, i::Int, μ::Int,
     iν = trans(lat, i, ν)
     # Evaluate: U(i,ν)† U(iν,μ)† U(iμ,ν) U(i,μ)
     # This is: (U(iν,μ) U(i,ν))† U(iμ,ν) U(i,μ)
-    mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
+    @views mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
     adjoint!(obs.V, obs.U)
-    mul!(obs.U, obs.V, cfg.U[:,:,ν,iμ])
-    mul!(obs.V, obs.U, cfg.U[:,:,μ,i])
-    return tr(obs.V)
+    @views mul!(obs.U, obs.V, cfg.U[:,:,ν,iμ])
+    @views mul!(obs.V, obs.U, cfg.U[:,:,μ,i])
+    return 1-tr(obs.V)/lat.N
 end
 
 function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
@@ -367,7 +377,7 @@ function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat
                 adjoint!(obs.V, obs.U)
                 mul!(obs.U, obs.V, cfg.U[:,:,ν,iμ])
                 mul!(obs.V, obs.U, cfg.U[:,:,μ,i])
-                S += 1/lat.g^2 * (lat.N - real(tr(obs.V)))
+                S += 2/(lat.g^2) * (lat.N - real(tr(obs.V)))
             end
         end
     end
@@ -377,6 +387,19 @@ end
 function action(cfg::Configuration{lat})::Float64 where {lat}
     obs = Observer{lat}()
     action(obs, cfg)
+end
+
+function plaquette(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+    r::Float64 = 0.
+    for i in lat
+        for μ in 1:lat.d
+            for ν in 1:(μ-1)
+                r += real(plaquette(obs, cfg, i, μ, ν))
+            end
+        end
+    end
+    r *= 2 / (volume(lat) * lat.d * (lat.d-1))
+    return r
 end
 
 function write(io::IO, cfg::Configuration{lat}) where {lat}

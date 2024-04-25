@@ -64,7 +64,7 @@ struct DOS
     samples::Vector{Sample}
 
     function DOS(dn::String)
-        fns = readdir(dn, join=true)
+        fns = filter(isfile, readdir(dn, join=true))
         md = open(read_metadata, fns[1])
         ss = Vector{Sample}()
         for fn in fns

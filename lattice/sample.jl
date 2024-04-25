@@ -5,6 +5,7 @@ using Dates: now
 
 include("dos.jl")
 include("ising.jl")
+include("qcd.jl")
 include("scalar.jl")
 include("ym.jl")
 
@@ -51,7 +52,7 @@ function main()
     else
         Lattice(args["L"], args["g"], β=args["T"], N=args["N"], d=args["d"])
     end
-    cfg = rand(Configuration{lat})
+    cfg = zero(Configuration{lat})
 
     latmeta = Dict("START" => start,
                    "MACHINE" => Sys.MACHINE,
@@ -65,8 +66,8 @@ function main()
 
     heatbath! = Heatbath{lat}()
     calibrate!(heatbath!, cfg)
-    for n in 1:1000
-        for s in 1:10
+    for n in 1:100
+        for s in 1:1000
             heatbath!(cfg)
         end
         cfgmeta = Dict("NOW" => now(),

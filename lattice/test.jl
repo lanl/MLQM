@@ -211,5 +211,15 @@ end
             end
         end
     end
+
+    @testset verbose=true "heatbath" begin
+        lat = Lattice(5, 0.1)
+        cfg = rand(Configuration{lat})
+        hb! = Heatbath{lat}()
+        @testset "does not allocate" begin
+            allocs = @allocations hb!(cfg)
+            @test allocs == 0
+        end
+    end
 end
 

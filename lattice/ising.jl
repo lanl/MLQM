@@ -2,6 +2,8 @@ module Ising
 
 import Base: iterate, rand, read, write, zero
 
+export Lattice, Configuration, Observer, Heatbath, SwendsenWang
+
 struct Lattice
     L::Int
     β::Int
@@ -31,6 +33,12 @@ function rand(T::Type{Configuration{lat}})::Configuration{lat} where {lat}
         cfg.σ[i] = rand(Bool)
     end
     return cfg
+end
+
+struct Heatbath{lat}
+end
+
+struct SwendsenWang{lat}
 end
 
 struct Observer{lat}

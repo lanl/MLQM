@@ -27,6 +27,9 @@ function zero(::Type{Configuration{lat}})::Configuration{lat} where {lat}
     return Configuration{lat}(ϕ)
 end
 
+struct Heatbath{lat}
+end
+
 struct Observer{lat}
 end
 
