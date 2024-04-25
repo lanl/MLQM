@@ -66,8 +66,8 @@ function main()
 
     heatbath! = Heatbath{lat}()
     calibrate!(heatbath!, cfg)
-    for n in 1:50
-        for s in 1:200
+    for n in 1:20
+        for s in 1:100
             heatbath!(cfg)
         end
         cfgmeta = Dict("NOW" => now(),

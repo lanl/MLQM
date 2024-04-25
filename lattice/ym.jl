@@ -38,7 +38,7 @@ mutable struct UnitarySampler
     V::Array{ComplexF64,3}
     M::Array{ComplexF64,3}
     σ::Float64
-    function UnitarySampler(N::Int, σ::Float64; K::Int=100)
+    function UnitarySampler(N::Int, σ::Float64; K::Int=200)
         if K < 2
             error("K≥2 required")
         end
@@ -91,7 +91,7 @@ mutable struct SpecialUnitarySampler
     V::Array{ComplexF64,3}
     M::Array{ComplexF64,3}
     σ::Float64
-    function SpecialUnitarySampler(N::Int, σ::Float64; K::Int=1000)
+    function SpecialUnitarySampler(N::Int, σ::Float64; K::Int=200)
         if K < 2
             error("K≥2 required")
         end
@@ -280,6 +280,7 @@ function calibrate!(hb!::Heatbath{lat}, cfg::Configuration{lat}) where {lat}
 end
 
 function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
+    resample!(hb.sample!, hb.sample!.σ)
     tot = 0
     acc = 0
     @views for i′ in lat
