@@ -91,7 +91,7 @@ mutable struct SpecialUnitarySampler
     V::Array{ComplexF64,3}
     M::Array{ComplexF64,3}
     σ::Float64
-    function SpecialUnitarySampler(N::Int, σ::Float64; K::Int=100)
+    function SpecialUnitarySampler(N::Int, σ::Float64; K::Int=1000)
         if K < 2
             error("K≥2 required")
         end
