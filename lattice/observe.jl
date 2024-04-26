@@ -28,6 +28,9 @@ function main()
     args = let
         s = ArgParseSettings()
         @add_arg_table s begin
+            "-q","--quiet"
+                help = "Quiet mode"
+                action = :store_true
             "-V","--vis"
                 help = "Create visualizations"
                 action = :store_true
@@ -40,6 +43,11 @@ function main()
     end
 
     dos = DOS(args["sampleDirectory"])
+    if !args["quiet"]
+        for (k,v) in dos.metadata
+            println("# $k $v")
+        end
+    end
     lat = Lattice(dos["L"], dos["g"]; N=dos["N"], d=dos["d"], β=dos["β"])
     obs = Observer{lat}()
     acts = []
