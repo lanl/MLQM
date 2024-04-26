@@ -44,17 +44,20 @@ function main()
     obs = Observer{lat}()
     acts = []
     plaqs = []
+    polys = []
     ns = []
     for sample in dos
         cfg = open(sample) do f
             read(f, Configuration{lat})
         end
+        push!(polys, YangMills.polyakov(obs,cfg))
         push!(plaqs, plaquette(obs,cfg))
         push!(acts, action(obs,cfg))
         push!(ns, sample["n"])
     end
     plaqm, plaqe = bootstrap(plaqs)
-    println("$plaqm $plaqe")
+    polym, polye = bootstrap(polys)
+    println("$plaqm $plaqe    $polym $polye")
     if args["vis"]
         vdir = joinpath(args["sampleDirectory"], "vis")
         mkpath(vdir)
