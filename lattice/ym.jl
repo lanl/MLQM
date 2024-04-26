@@ -340,16 +340,19 @@ end
 struct Observer{lat}
     U::Matrix{ComplexF64}
     V::Matrix{ComplexF64}
+    W::Matrix{ComplexF64}
     function Observer{lat}() where {lat}
         U = zeros(ComplexF64, (lat.N,lat.N))
         V = zeros(ComplexF64, (lat.N,lat.N))
-        new(U,V)
+        W = zeros(ComplexF64, (lat.N,lat.N))
+        new(U,V,W)
     end
 end
 
 function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
+    r["polyakov"] = polyakov(obs,cfg)
     return r
 end
 
@@ -363,6 +366,19 @@ function plaquette(obs::Observer{lat}, cfg::Configuration{lat}, i::Int, μ::Int,
     @views mul!(obs.U, obs.V, cfg.U[:,:,ν,iμ])
     @views mul!(obs.V, obs.U, cfg.U[:,:,μ,i])
     return 1-tr(obs.V)/lat.N
+end
+
+function plaquette(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+    r::Float64 = 0.
+    for i in lat
+        for μ in 1:lat.d
+            for ν in 1:(μ-1)
+                r += real(plaquette(obs, cfg, i, μ, ν))
+            end
+        end
+    end
+    r *= 2 / (volume(lat) * lat.d * (lat.d-1))
+    return r
 end
 
 function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
@@ -390,17 +406,94 @@ function action(cfg::Configuration{lat})::Float64 where {lat}
     action(obs, cfg)
 end
 
-function plaquette(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
-    r::Float64 = 0.
+function wilsonloop(obs::Observer{lat}, cfg::Configuration{lat}, i, μ, Lx, ν, Ly)::ComplexF64 where {lat}
+    obs.U .= 0
+    for a in 1:lat.N
+        obs.U[a,a] = 1
+    end
+    for n in 1:Lx
+        @views mul!(obs.V, cfg.U[:,:,μ,i], obs.U)
+        obs.U .= obs.V
+        i = trans(lat, i, μ)
+    end
+    for n in 1:Ly
+        @views mul!(obs.V, cfg.U[:,:,ν,i], obs.U)
+        obs.U .= obs.V
+        i = trans(lat, i, ν)
+    end
+    for n in 1:Lx
+        i = trans(lat, i, μ, n=-1)
+        @views adjoint!(obs.W, cfg.U[:,:,μ,i])
+        mul!(obs.V, obs.W, obs.U)
+        obs.U .= obs.V
+    end
+    for n in 1:Ly
+        i = trans(lat, i, ν, n=-1)
+        @views adjoint!(obs.W, cfg.U[:,:,ν,i])
+        mul!(obs.V, obs.W, obs.U)
+        obs.U .= obs.V
+    end
+    return 1 - tr(obs.U)/lat.N
+end
+
+function wilsonloop(obs::Observer{lat}, cfg::Configuration{lat}, Lx::Int, Lt::Int)::ComplexF64 where {lat}
+    r::ComplexF64 = 0.
+    ν = lat.d
     for i in lat
-        for μ in 1:lat.d
-            for ν in 1:(μ-1)
-                r += real(plaquette(obs, cfg, i, μ, ν))
-            end
+        for μ in 1:lat.d-1
+            r += wilsonloop(obs, cfg, i, μ, Lx, ν, Lt)
         end
     end
-    r *= 2 / (volume(lat) * lat.d * (lat.d-1))
-    return r
+    return r/(volume(lat)*(lat.d-1))
+end
+
+function polyakov(obs::Observer{lat}, cfg::Configuration{lat}, i::Int)::ComplexF64 where {lat}
+    obs.V .= 0
+    for a in 1:lat.N
+        obs.V[a,a] = 1.
+    end
+    for t in 1:lat.β
+        @views mul!(obs.U, cfg.U[:,:,lat.d,i], obs.V)
+        obs.V .= obs.U
+        i = trans(lat, i, lat.d)
+    end
+    return tr(obs.U)
+end
+
+function polyakov(obs::Observer{lat}, cfg::Configuration{lat})::ComplexF64 where {lat}
+    r::ComplexF64 = 0.
+    for i in 1:(lat.L^(lat.d-1))
+        r += polyakov(obs, cfg, i)
+    end
+    return r/(lat.L^(lat.d-1))
+end
+
+function quarkpotential(obs::Observer{lat}, cfg::Configuration{lat}, x::Int)::Float64 where {lat}
+    z::Float64 = 0.
+    for i in 1:(lat.L^(lat.d-1))
+        for μ in 1:lat.d-1
+            j = trans(lat, i, μ, n=x)
+            P = polyakov(obs, cfg, i)
+            P′ = polyakov(obs, cfg, j)
+            z += real((P*conj(P′))/(lat.d-1)/(lat.L^(lat.d-1)))
+        end
+    end
+    if z < 0
+        z = 0
+    end
+    return -log(z)/lat.β
+end
+
+function quarkpotential!(v::Vector{Float64}, obs::Observer{lat}, cfg::Configuration{lat}) where {lat}
+    for x in 1:lat.L
+        v[i] = quarkpotential(obs, cfg, x)
+    end
+end
+
+function quarkpotential(obs::Observer{lat}, cfg::Configuration{lat})::Vector{Float64} where {lat}
+    v = zeros(Float64, lat.L)
+    quarkpotential!(v, obs, cfg)
+    return v
 end
 
 function write(io::IO, cfg::Configuration{lat}) where {lat}

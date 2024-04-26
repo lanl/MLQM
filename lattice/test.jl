@@ -199,6 +199,41 @@ end
             @test allocs == 0
         end
 
+        @testset "polyakov does not allocate" begin
+            allocs = @allocations YangMills.polyakov(obs, cfg)
+            @test allocs == 0
+        end
+
+        @testset "quarkpotential does not allocate" begin
+            for x in 1:4
+                allocs = @allocations YangMills.quarkpotential(obs, cfg, x)
+                @test allocs == 0
+            end
+        end
+
+        @testset "wilsonloop does not allocate" begin
+            for Lt in 1:4
+                for Lx in 1:4
+                    allocs = @allocations YangMills.wilsonloop(obs, cfg, Lx, Lt)
+                    @test allocs == 0
+                end
+            end
+        end
+
+        @testset "wilsonloop is gauge invariant" begin
+            for Lt in 1:4
+                for Lx in 1:4
+                    wl1 = YangMills.wilsonloop(obs, cfg, Lx, Lt)
+                    i = rand(1:volume(lat))
+                    U = rand(ComplexF64, (lat.N,lat.N))
+                    sunitarize!(U)
+                    gauge!(cfg, i, U)
+                    wl2 = YangMills.wilsonloop(obs, cfg, Lx, Lt)
+                    @test wl1 ≈ wl2
+                end
+            end
+        end
+
         @testset "are gauge invariant" begin
             for k in 1:100
                 i = rand(1:volume(lat))
@@ -208,6 +243,7 @@ end
                 gauge!(cfg, i, U)
                 obs2 = obs(cfg)
                 @test abs(obs1["action"] - obs2["action"]) / obs1["action"] < 1e-6
+                @test abs(obs1["polyakov"] - obs2["polyakov"]) / abs(obs1["polyakov"]) < 1e-6
             end
         end
     end
