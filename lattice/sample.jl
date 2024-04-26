@@ -41,6 +41,10 @@ function main()
                 help = "Coupling"
                 arg_type = Float64
                 required = true
+            "-S","--samples"
+                help = "Number of samples"
+                arg_type = Int
+                default = 100
         end
         parse_args(s)
     end
@@ -66,7 +70,7 @@ function main()
 
     heatbath! = Heatbath{lat}()
     calibrate!(heatbath!, cfg)
-    for n in 1:20
+    for n in 1:args["samples"]
         for s in 1:100
             heatbath!(cfg)
         end
