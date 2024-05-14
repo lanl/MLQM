@@ -66,7 +66,7 @@ if __name__ == '__main__':
             help="random seed")
     parser.add_argument('N', type=int, help="number of samples to generate")
     parser.add_argument('L', type=int, help="lattice size")
-    parser.add_argument('beta', type=float, help="inverse temperature")
+    parser.add_argument('T', type=float, help="temperature")
     args = parser.parse_args()
 
     if args.debug_nan:
@@ -86,14 +86,14 @@ if __name__ == '__main__':
     key = jr.PRNGKey(seed)
 
     @jax.jit
-    def generate(k):
-        A = jr.normal(k, (args.L,args.L,2))
+    def generate(k, T):
+        A = T*jr.normal(k, (args.L,args.L,2))
         ld = logdetK(0., A)
         return ld, A
 
     for n in range(args.N):
         gk, key = jr.split(key)
-        d, A = generate(key)
+        d, A = generate(key, args.T)
         Astr = ' '.join(map(str, A.ravel()))
         print(d, Astr)
 
