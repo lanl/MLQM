@@ -21,10 +21,10 @@ end
     @testset "Serializing configurations" begin
         io = IOBuffer()
         lat = Ising.Lattice(5, 3, 0.1, 3)
-        cfg = rand(Ising.Configuration{lat})
+        cfg = rand(Ising.Cfg{lat})
         write(io, cfg)
         seekstart(io)
-        cfg′ = read(io, Ising.Configuration{lat})
+        cfg′ = read(io, Ising.Cfg{lat})
         for i in lat
             @test cfg.σ[i] == cfg′.σ[i]
         end
