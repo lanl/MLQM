@@ -48,7 +48,19 @@ function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
 end
 
 function (hb::Heatbath{lat})(cfg::Cfg{lat}) where {lat}
+    J = lat.J
     for i′ in lat
+        i = rand(1:volume(lat))
+        ntrue::Int = 0
+        # TODO (make trans() and coordinate() from ym.jl generic)
+        nfalse = 2^lat.d - ntrue
+        S = J * (ntrue - nfalse)
+        ptrue = exp(-S) / (exp(S) + exp(-S))
+        if rand() < ptrue
+            cfg.σ[i] = true
+        else
+            cfg.σ[i] = false
+        end
     end
 end
 
