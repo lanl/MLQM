@@ -2,6 +2,7 @@
 
 using ArgParse
 using Dates: now
+using Printf: @sprintf
 
 include("dos.jl")
 include("lattices.jl")
@@ -57,7 +58,7 @@ function main()
         cfgmeta = Dict("NOW" => now(),
                        "n" => n
                       )
-        save("cfg$n", dos, cfgmeta) do f
+        save((@sprintf "cfg%05d" n), dos, cfgmeta) do f
             write(f, cfg)
         end
     end

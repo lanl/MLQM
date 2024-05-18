@@ -48,6 +48,8 @@ function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
 end
 
 function (hb::Heatbath{lat})(cfg::Cfg{lat}) where {lat}
+    for i′ in lat
+    end
 end
 
 struct SwendsenWang{lat}
