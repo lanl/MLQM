@@ -4,6 +4,7 @@ using Test
 
 using LinearAlgebra: det
 
+include("lattices.jl")
 include("ising.jl")
 include("scalar.jl")
 include("qcd.jl")

@@ -4,6 +4,8 @@ using ArgParse
 using Dates: now
 
 include("dos.jl")
+include("lattices.jl")
+
 include("ising.jl")
 include("qcd.jl")
 include("higgs.jl")
@@ -11,7 +13,8 @@ include("negahiggs.jl")
 include("scalar.jl")
 include("ym.jl")
 
-using .YangMills
+using .Lattices
+using .Ising
 
 function main()
     args = let
@@ -37,7 +40,7 @@ function main()
 
     modelExpr = Meta.parse(args["model"])
     lat = eval(modelExpr)
-    cfg = zero(Configuration{lat})
+    cfg = zero(Configuration(lat))
 
     latmeta = Dict("START" => start,
                    "MACHINE" => Sys.MACHINE,
@@ -45,11 +48,11 @@ function main()
                   )
     dos = DOS(args["sampleDirectory"], latmeta)
 
-    heatbath! = Heatbath{lat}()
-    calibrate!(heatbath!, cfg)
+    sample! = Sampler(lat)
+    calibrate!(sample!, cfg)
     for n in 1:args["samples"]
         for s in 1:100
-            heatbath!(cfg)
+            sample!(cfg)
         end
         cfgmeta = Dict("NOW" => now(),
                        "n" => n
