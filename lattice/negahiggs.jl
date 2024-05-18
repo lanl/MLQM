@@ -1,14 +1,10 @@
-module Scalar
+module NegaHiggs
 
 import Base: iterate, rand, read, write, zero
 
 struct Lattice
     L::Int
     β::Int
-    N::Int
-    d::Int
-    m²::Float64
-    λ::Float64
 end
 
 volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)
@@ -30,20 +26,16 @@ end
 struct Heatbath{lat}
 end
 
-struct Wolff{lat}
+function calibrate!(hb!::Heatbath{lat}, cfg::Configuration{lat}) where {lat}
+    # TODO
+end
+
+function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
+    tot = 0
+    acc = 0
 end
 
 struct Observer{lat}
-end
-
-function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
-    r = Dict{String,Any}()
-    r["action"] = action(obs,cfg)
-    return r
-end
-
-function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
-    # TODO
 end
 
 function write(io::IO, cfg::Configuration{lat}) where {lat}

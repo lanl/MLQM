@@ -1,14 +1,13 @@
-module Scalar
+module Higgs
 
 import Base: iterate, rand, read, write, zero
 
 struct Lattice
     L::Int
     β::Int
-    N::Int
     d::Int
-    m²::Float64
-    λ::Float64
+    Nc::Int
+    Nf::Int
 end
 
 volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)
@@ -18,32 +17,37 @@ function iterate(lat::Lattice, i::Int64=0)
 end
 
 struct Configuration{lat}
+    U::Array{ComplexF64,4}
     ϕ::Array{Float64,2}
 end
 
 function zero(::Type{Configuration{lat}})::Configuration{lat} where {lat}
     V = volume(lat)
+    U = zeros(ComplexF64, (lat.N,lat.N,lat.d,V))
+    for i in 1:V
+        for μ in 1:lat.d
+            for a in 1:lat.Nc
+                U[a,a,μ,i] = 1
+            end
+        end
+    end
     ϕ = zeros(Float64, (lat.N,V))
-    return Configuration{lat}(ϕ)
+    return Configuration{lat}(U, ϕ)
 end
 
 struct Heatbath{lat}
 end
 
-struct Wolff{lat}
+function calibrate!(hb!::Heatbath{lat}, cfg::Configuration{lat}) where {lat}
+    # TODO
+end
+
+function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
+    tot = 0
+    acc = 0
 end
 
 struct Observer{lat}
-end
-
-function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
-    r = Dict{String,Any}()
-    r["action"] = action(obs,cfg)
-    return r
-end
-
-function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
-    # TODO
 end
 
 function write(io::IO, cfg::Configuration{lat}) where {lat}
@@ -55,3 +59,4 @@ function read(io::IO, T::Type{Configuration{lat}})::Configuration{lat} where {la
 end
 
 end
+

@@ -9,6 +9,8 @@ using Statistics: mean, std
 include("dos.jl")
 include("ising.jl")
 include("qcd.jl")
+include("higgs.jl")
+include("negahiggs.jl")
 include("scalar.jl")
 include("ym.jl")
 
@@ -48,7 +50,8 @@ function main()
             println("# $k $v")
         end
     end
-    lat = Lattice(dos["L"], dos["g"]; N=dos["N"], d=dos["d"], β=dos["β"])
+    modelExpr = Meta.parse(dos["lattice"])
+    lat = eval(modelExpr)
     obs = Observer{lat}()
     acts = []
     plaqs = []

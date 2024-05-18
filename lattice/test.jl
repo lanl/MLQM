@@ -8,6 +8,8 @@ include("ising.jl")
 include("scalar.jl")
 include("qcd.jl")
 include("ym.jl")
+include("higgs.jl")
+include("negahiggs.jl")
 
 using .YangMills
 
@@ -257,5 +259,11 @@ end
             @test allocs == 0
         end
     end
+end
+
+@testset verbose=true "Higgs" begin
+end
+
+@testset verbose=true "NegaHiggs" begin
 end
 
