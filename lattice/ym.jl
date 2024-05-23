@@ -8,7 +8,7 @@ using Random: randn!
 export UnitarySampler, SpecialUnitarySampler
 export unitarize!, sunitarize!, resample!
 export Configuration, Lattice, Observer, Heatbath, PseudoHeatbath
-export volume, trans, action, coordinate, plaquette
+export action, plaquette
 export gauge!, calibrate!
 
 function unitarize!(U::AbstractArray{ComplexF64,2})
@@ -160,6 +160,8 @@ struct Lattice
         new(L,β,g,N,d)
     end
 end
+
+# TODO replace all geometrical functions with versions in lattices.jl
 
 volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)
 

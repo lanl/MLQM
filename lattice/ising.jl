@@ -1,23 +1,19 @@
 module Ising
 
 import Base: iterate, rand, read, write, zero
+
+using ..Lattices
 import ..Lattices: Configuration, Observer, Sampler, calibrate!
 
 export IsingLattice
 
-struct Lattice
+struct Lattice <: CartesianGeometry
+    d::Int
     L::Int
     β::Int
     J::Float64
-    d::Int
 end
 IsingLattice = Lattice
-
-volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)
-
-function iterate(lat::Lattice, i::Int64=0)
-    i < volume(lat) ? (i+1,i+1) : nothing
-end
 
 struct Cfg{lat}
     σ::Vector{Bool}
@@ -52,7 +48,9 @@ function (hb::Heatbath{lat})(cfg::Cfg{lat}) where {lat}
     for i′ in lat
         i = rand(1:volume(lat))
         ntrue::Int = 0
-        # TODO (make trans() and coordinate() from ym.jl generic)
+        for j in adjacent(lat, i)
+            ntrue += cfg.σ[j]
+        end
         nfalse = 2^lat.d - ntrue
         S = J * (ntrue - nfalse)
         ptrue = exp(-S) / (exp(S) + exp(-S))
