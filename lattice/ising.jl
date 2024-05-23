@@ -83,7 +83,11 @@ function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
 end
 
 function action(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
+    S::Float64 = 0.
+    for i in lat
+    end
     # TODO
+    return S
 end
 
 function write(io::IO, cfg::Cfg{lat}) where {lat}

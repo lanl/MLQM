@@ -7,6 +7,7 @@ using DataFrames
 using Statistics: mean, std
 
 include("dos.jl")
+include("lattices.jl")
 include("ising.jl")
 include("qcd.jl")
 include("higgs.jl")
@@ -14,7 +15,8 @@ include("negahiggs.jl")
 include("scalar.jl")
 include("ym.jl")
 
-using .YangMills
+using .Lattices
+using .Ising
 
 function bootstrap(f, x; K::Int=1000)
     m = f(x)
@@ -52,30 +54,27 @@ function main()
     end
     modelExpr = Meta.parse(dos["lattice"])
     lat = eval(modelExpr)
-    obs = Observer{lat}()
-    acts = []
-    plaqs = []
-    polys = []
-    ns = []
+    obs = Observer(lat)()
+    df = DataFrame(:n => [])
     for sample in dos
         cfg = open(sample) do f
-            read(f, Configuration{lat})
+            read(f, Configuration(lat))
         end
-        push!(polys, YangMills.polyakov(obs,cfg))
-        push!(plaqs, plaquette(obs,cfg))
-        push!(acts, action(obs,cfg))
-        push!(ns, sample["n"])
+        observation = obs(cfg)
+        observation["n"] = sample["n"]
+        if isempty(df)
+            for cn in keys(observation)
+                df[!,cn] = []
+            end
+        end
+        push!(df, observation)
     end
-    plaqm, plaqe = bootstrap(plaqs)
-    polym, polye = bootstrap(polys)
-    println("$plaqm $plaqe    $polym $polye")
     if args["vis"]
         vdir = joinpath(args["sampleDirectory"], "vis")
         mkpath(vdir)
 
         # Mixing
-        df = DataFrame(n=ns, S=acts)
-        fig = draw(data(df) * mapping(:n, :S))
+        fig = draw(data(df) * mapping(:n, :action))
         mixing_fn = joinpath(vdir, "mixing.png")
         savefig(mixing_fn, fig)
     end
