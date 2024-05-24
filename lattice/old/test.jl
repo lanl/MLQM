@@ -1,23 +1,3 @@
-#!/usr/bin/env julia
-
-using Test
-
-using LinearAlgebra: det
-
-include("lattices.jl")
-include("ising.jl")
-include("scalar.jl")
-include("qcd.jl")
-include("ym.jl")
-include("higgs.jl")
-include("negahiggs.jl")
-
-using .Lattices
-using .Ising
-using .YangMills
-
-@testset verbose=true "QCD" begin
-end
 
 @testset verbose=true "Ising" begin
     @testset "Serializing configurations" begin
@@ -50,12 +30,6 @@ end
         #end
         #@test allocs == 0
         #@test s == 6
-    end
-end
-
-@testset verbose=true "Scalar" begin
-    @testset "Serializing configurations" begin
-        # TODO
     end
 end
 
@@ -282,11 +256,5 @@ end
             @test allocs == 0
         end
     end
-end
-
-@testset verbose=true "Higgs" begin
-end
-
-@testset verbose=true "NegaHiggs" begin
 end
 

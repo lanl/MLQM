@@ -2,3 +2,6 @@ name = "LatticeFieldTheories"
 uuid = "dd131e49-3dd2-4a78-8dda-c9237d88d110"
 authors = ["Scott Lawrence <srlawrence@lanl.gov>"]
 version = "0.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"

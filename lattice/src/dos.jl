@@ -1,4 +1,5 @@
 # Directory of samples
+module DirectoryOfSamples
 
 import Base: getindex, iterate, open
 
@@ -110,3 +111,4 @@ function save(f::Function, name::String, dos::DOS, fmeta)
     close(io)
 end
 
+end

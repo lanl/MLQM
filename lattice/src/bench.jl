@@ -1,13 +1,6 @@
-#!/usr/bin/env julia
-
 using ArgParse
 
-include("ising.jl")
-include("scalar.jl")
-include("qcd.jl")
-include("ym.jl")
-
-using .YangMills
+using LatticeFieldTheories
 
 function main()
     args = let

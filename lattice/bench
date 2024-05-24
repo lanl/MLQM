@@ -1,0 +1,2 @@
+#!/bin/bash
+exec julia --project='.' src/bench.jl
