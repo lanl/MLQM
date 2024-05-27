@@ -1,5 +1,8 @@
 module LatticeFieldTheories
 
+export Lattice, Configuration, Observer, Sampler
+export calibrate!
+
 include("dos.jl")
 include("geometry.jl")
 include("lattices.jl")
