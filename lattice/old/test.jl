@@ -1,38 +1,4 @@
 
-@testset verbose=true "Ising" begin
-    @testset "Serializing configurations" begin
-        io = IOBuffer()
-        lat = Ising.Lattice(3, 5, 3, 0.1)
-        cfg = rand(Ising.Cfg{lat})
-        write(io, cfg)
-        seekstart(io)
-        cfg′ = read(io, Ising.Cfg{lat})
-        for i in lat
-            @test cfg.σ[i] == cfg′.σ[i]
-        end
-    end
-
-    @testset "Lattice iteration does not allocate" begin
-        lat = Ising.Lattice(3, 5, 3, 0.1)
-        s::Int = 0
-        allocs = @allocations for i in lat
-            s += 1
-        end
-        @test s == volume(lat)
-        @test allocs == 0
-    end
-
-    @testset "Adjacency does not allocate" begin
-        lat = Ising.Lattice(3, 5, 3, 0.1)
-        s = 0
-        #allocs = @allocations adjacent(lat, 3) do j
-        #    s += 1
-        #end
-        #@test allocs == 0
-        #@test s == 6
-    end
-end
-
 @testset verbose=true "Yang-Mills" begin
     @testset "Serializing configurations" begin
         io = IOBuffer()

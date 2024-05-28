@@ -5,6 +5,8 @@ import Base: iterate, rand, read, write, zero
 using ..Geometries
 using ..Lattices
 
+import ..Lattices: calibrate!
+
 abstract type IsingLattice <: Lattice end
 
 struct IsotropicLattice <: IsingLattice
@@ -12,44 +14,45 @@ struct IsotropicLattice <: IsingLattice
     J::Float64
 end
 
-struct Cfg{geom} <: Configuration{IsingLattice}
+struct Cfg{geom} <: Configuration
     σ::Vector{Bool}
 
     function Cfg{geom}() where {geom}
         V = volume(geom)
-        σ = zeros(Bool, (v))
+        σ = zeros(Bool, V)
         return new{geom}(σ)
     end
 end
 
 function zero(::Type{Cfg{geom}})::Cfg{geom} where {geom}
-    return Cfg{geom}(σ)
+    return Cfg{geom}()
 end
 
-function rand(T::Type{Cfg{lat}})::Cfg{lat} where {lat}
+function rand(T::Type{Cfg{geom}})::Cfg{geom} where {geom}
     cfg = zero(T)
-    for i in lat
+    for i in geom
         cfg.σ[i] = rand(Bool)
     end
     return cfg
 end
 
-struct Heatbath{lat} <: Sampler{lat}
+struct Heatbath{lat} <: Sampler
 end
 
-function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
+function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{geom}) where {lat,geom}
+    @assert lat.geom == geom
 end
 
-function (hb::Heatbath{lat})(cfg::Cfg{lat}) where {lat}
-    geom = hb.geom
+function (hb::Heatbath{lat})(cfg::Cfg{geom}) where {lat,geom}
+    @assert lat.geom == geom
     J = lat.J
-    for i′ in lat
+    for i′ in geom
         i = rand(1:volume(geom))
         ntrue::Int = 0
-        for j in adjacent(lat, i)
+        for j in adjacent(geom, i)
             ntrue += cfg.σ[j]
         end
-        nfalse = 2^lat.d - ntrue
+        nfalse = 2^geom.d - ntrue
         S = J * (ntrue - nfalse)
         ptrue = exp(-S) / (exp(S) + exp(-S))
         if rand() < ptrue
@@ -61,6 +64,18 @@ function (hb::Heatbath{lat})(cfg::Cfg{lat}) where {lat}
 end
 
 struct SwendsenWang{lat}
+end
+
+function Sampler(lat::IsotropicLattice, algorithm=:Heatbath)
+    cfg = zero(Cfg{lat.geom})
+    if algorithm == :Heatbath
+        sample! = Heatbath{lat}()
+    elseif algorithm == :SwendsenWang
+        sample! = SwendsenWang{lat}()
+    else
+        error("Unknown algorithm requested")
+    end
+    return sample!, cfg
 end
 
 function calibrate!(sw!::SwendsenWang{lat}, cfg::Cfg{lat}) where {lat}
@@ -78,23 +93,23 @@ function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
     return r
 end
 
-function action(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
+function action(obs::Obs{lat}, cfg::Cfg{geom})::Float64 where {lat,geom}
     S::Float64 = 0.
-    for i in lat
+    for i in geom
     end
     # TODO
     return S
 end
 
-function write(io::IO, cfg::Cfg{lat}) where {lat}
-    for i in lat
+function write(io::IO, cfg::Cfg{geom}) where {geom}
+    for i in geom
         write(io, hton(cfg.σ[i]))
     end
 end
 
-function read(io::IO, T::Type{Cfg{lat}})::Cfg{lat} where {lat}
+function read(io::IO, T::Type{Cfg{geom}})::Cfg{geom} where {geom}
     cfg = zero(T)
-    for i in lat
+    for i in geom
         σ = read(io, Bool)
         cfg.σ[i] = ntoh(σ)
     end

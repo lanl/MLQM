@@ -28,14 +28,13 @@ function main()
 
     modelExpr = Meta.parse(args["model"])
     lat = eval(modelExpr)
-    cfg = Configuration{lat}()
     latmeta = Dict("START" => start,
                    "MACHINE" => Sys.MACHINE,
                    "lattice" => modelExpr,
                   )
     dos = DOS(args["sampleDirectory"], latmeta)
 
-    sample! = Sampler(lat)
+    sample!, cfg = Sampler(lat)
     calibrate!(sample!, cfg)
     for n in 1:args["samples"]
         for s in 1:100

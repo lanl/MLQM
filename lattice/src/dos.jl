@@ -1,6 +1,9 @@
 # Directory of samples
 module DirectoryOfSamples
 
+export DOS
+export save
+
 import Base: getindex, iterate, open
 
 function str2any(s::AbstractString)::Any

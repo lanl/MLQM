@@ -13,12 +13,16 @@ struct CartesianGeometry <: Geometry
     β::Int
 end
 
+function CartesianGeometry(d::Int, L::Int)::CartesianGeometry
+    return CartesianGeometry(d, L, L)
+end
+
 function volume(g::CartesianGeometry)::Int
     return g.β*g.L^(g.d-1)
 end
 
 function iterate(g::CartesianGeometry, i::Int64=0)
-    i < volume(lat) ? (i+1,i+1) : nothing
+    i < volume(g) ? (i+1,i+1) : nothing
 end
 
 function translate(g::CartesianGeometry, i::Int, μ::Int; n::Int=1)::Int
@@ -68,7 +72,7 @@ function iterate(adj::CartesianAdjacency{g}, s::Tuple{Int64,Bool}=(0,true)) wher
 end
 
 function adjacent(f, g::CartesianGeometry, i::Int)
-    for j in adjacent(lat, i)
+    for j in adjacent(g, i)
         f(j)
     end
 end

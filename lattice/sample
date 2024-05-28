@@ -1,2 +1,2 @@
 #!/bin/bash
-exec julia --project='.' src/sample.jl $*
+exec julia --project='.' src/sample.jl "$@"

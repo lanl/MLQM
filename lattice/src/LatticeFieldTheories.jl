@@ -1,7 +1,15 @@
 module LatticeFieldTheories
 
+export DOS
+export save
+
+export CartesianGeometry
+export volume, translate, coordinate, adjacent
+
 export Lattice, Configuration, Observer, Sampler
 export calibrate!
+
+export Ising
 
 include("dos.jl")
 include("geometry.jl")
