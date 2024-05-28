@@ -1,30 +1,36 @@
 module Scalar
 
-import Base: iterate, rand, read, write, zero
+using Random: randn!
 
-struct Lattice
-    L::Int
-    β::Int
+import Base: iterate, rand, read, write, zero
+import Random: rand
+
+using ..Geometries
+using ..Lattices
+
+import ..Lattices: Sampler, calibrate!
+
+struct IsotropicLattice
+    geom::CartesianGeometry
     N::Int
-    d::Int
     m²::Float64
     λ::Float64
 end
 
-volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)
-
-function iterate(lat::Lattice, i::Int64=0)
-    i < volume(lat) ? (i+1,i+1) : nothing
-end
-
-struct Configuration{lat}
+struct Cfg{lat}
     ϕ::Array{Float64,2}
 end
 
-function zero(::Type{Configuration{lat}})::Configuration{lat} where {lat}
-    V = volume(lat)
+function zero(::Type{Cfg{lat}})::Cfg{lat} where {lat}
+    V = volume(lat.geom)
     ϕ = zeros(Float64, (lat.N,V))
-    return Configuration{lat}(ϕ)
+    return Cfg{lat}(ϕ)
+end
+
+function rand(::Type{Cfg{lat}})::Cfg{lat} where {lat}
+    cfg = zero(Cfg{lat})
+    randn!(cfg.ϕ)
+    return cfg
 end
 
 struct Heatbath{lat}
@@ -33,25 +39,36 @@ end
 struct Wolff{lat}
 end
 
-struct Observer{lat}
+struct Obs{lat}
 end
 
-function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
+function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
     return r
 end
 
-function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+function action(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
     # TODO
 end
 
-function write(io::IO, cfg::Configuration{lat}) where {lat}
-    # TODO
+function write(io::IO, cfg::Cfg{lat}) where {lat}
+    for i in lat.geom
+        for n in 1:lat.N
+            write(io, hton(cfg.ϕ[n,i]))
+        end
+    end
 end
 
-function read(io::IO, T::Type{Configuration{lat}})::Configuration{lat} where {lat}
-    # TODO
+function read(io::IO, T::Type{Cfg{lat}})::Cfg{lat} where {lat}
+    cfg = zero(T)
+    for i in lat.geom
+        for n in 1:lat.N
+            c = read(io, Float64)
+            cfg.ϕ[n,i] = ntoh(c)
+        end
+    end
+    return cfg
 end
 
 end
