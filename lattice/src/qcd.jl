@@ -1,9 +1,9 @@
 module QCD
 
+using ..Geometries
+
 struct Lattice
-    L::Int
-    β::Int
-    N::Int
+    geom::CartesianGeometry
 end
 
 volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)

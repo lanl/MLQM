@@ -5,7 +5,7 @@ import Base: iterate, rand, read, write, zero
 using ..Geometries
 using ..Lattices
 
-import ..Lattices: calibrate!
+import ..Lattices: Sampler, calibrate!
 
 abstract type IsingLattice <: Lattice end
 

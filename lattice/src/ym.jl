@@ -5,11 +5,10 @@ import Base: iterate, read, rand, write, zero
 using LinearAlgebra: ⋅,I,det,mul!,norm,tr,adjoint!
 using Random: randn!
 
-export UnitarySampler, SpecialUnitarySampler
-export unitarize!, sunitarize!, resample!
-export Configuration, Lattice, Observer, Heatbath, PseudoHeatbath
-export action, plaquette
-export gauge!, calibrate!
+using ..Geometries
+using ..Lattices
+
+import ..Lattices: Sampler, calibrate!
 
 function unitarize!(U::AbstractArray{ComplexF64,2})
     N = size(U)[1]
@@ -149,91 +148,59 @@ function (s::SpecialUnitarySampler)(U::AbstractArray{ComplexF64,2})
     @views U .= s.V[:,:,k]
 end
 
-struct Lattice
-    L::Int
-    β::Int
+struct YangMillsLattice
+    geom::CartesianGeometry
     g::Float64
     N::Int
-    d::Int
 
-    function Lattice(L::Int, g::Float64; β::Int=L, N::Int=3, d::Int=4)
-        new(L,β,g,N,d)
+    function YangMillsLattice(L::Int, g::Float64; β::Int=L, N::Int=3, d::Int=4)
+        new(CartesianGeometry(d,L,β),g,N)
     end
 end
 
-# TODO replace all geometrical functions with versions in lattices.jl
+wilson_beta(lat::YangMillsLattice)::Float64 = 2*lat.N/(lat.g^2)
 
-volume(lat::Lattice)::Int = lat.β*lat.L^(lat.d-1)
-
-function iterate(lat::Lattice, i::Int64=0)
-    i < volume(lat) ? (i+1,i+1) : nothing
-end
-
-function trans(lat::Lattice, i::Int, μ::Int; n::Int=1)::Int
-    i -= 1
-    v = lat.L^(μ-1)
-    V = if μ == lat.d
-        lat.β*lat.L^(μ-1)
-    else
-        lat.L^μ
-    end
-    return 1 + mod(i+n*v,V) + (i÷V)*V
-end
-
-function coordinate(lat::Lattice, i::Int, μ::Int)::Int
-    @assert μ ≥ 1 && μ ≤ lat.d
-    i -= 1
-    if μ == lat.d
-        return 1 + i÷(lat.L^(lat.d-1))
-    else
-        v = lat.L^(μ-1)
-        return 1 + (i÷v)%lat.L
-    end
-end
-
-wilson_beta(lat::Lattice)::Float64 = 2*lat.N/(lat.g^2)
-
-struct Configuration{lat}
+struct Cfg{lat}
     U::Array{ComplexF64,4}
 end
 
-function zero(::Type{Configuration{lat}})::Configuration{lat} where {lat}
-    V = volume(lat)
-    U = zeros(ComplexF64, (lat.N,lat.N,lat.d,V))
-    for i in 1:V
-        for μ in 1:lat.d
+function zero(::Type{Cfg{lat}})::Cfg{lat} where {lat}
+    V = volume(lat.geom)
+    U = zeros(ComplexF64, (lat.N,lat.N,lat.geom.d,V))
+    for i in lat.geom
+        for μ in 1:lat.geom.d
             for a in 1:lat.N
                 U[a,a,μ,i] = 1
             end
         end
     end
-    return Configuration{lat}(U)
+    return Cfg{lat}(U)
 end
 
-function rand(::Type{Configuration{lat}})::Configuration{lat} where {lat}
-    V = volume(lat)
-    U = rand(ComplexF64, (lat.N,lat.N,lat.d,V))
-    for i in lat
-        for μ in 1:lat.d
+function rand(::Type{Cfg{lat}})::Cfg{lat} where {lat}
+    V = volume(lat.geom)
+    U = rand(ComplexF64, (lat.N,lat.N,lat.geom.d,V))
+    for i in lat.geom
+        for μ in 1:lat.geom.d
             @views unitarize!(U[:,:,μ,i])
         end
     end
-    return Configuration{lat}(U)
+    return Cfg{lat}(U)
 end
 
 # Perform a gauge transformation.
-function gauge!(cfg::Configuration{lat}, i::Int, U::AbstractMatrix{ComplexF64}, V=nothing) where {lat}
+function gauge!(cfg::Cfg{lat}, i::Int, U::AbstractMatrix{ComplexF64}, V=nothing) where {lat}
     if isnothing(V)
         V = zeros(ComplexF64, (lat.N,lat.N))
     end
-    for μ in 1:lat.d
+    for μ in 1:lat.geom.d
         @views mul!(V, cfg.U[:,:,μ,i], U)
         cfg.U[:,:,μ,i] .= V
     end
     adjoint!(V, U)
     U .= V
-    for μ in 1:lat.d
-        j = trans(lat, i, μ, n=-1)
+    for μ in 1:lat.geom.d
+        j = translate(lat.geom, i, μ, n=-1)
         @views mul!(V, U, cfg.U[:,:,μ,j])
         cfg.U[:,:,μ,j] .= V
     end
@@ -267,7 +234,7 @@ function trmul(A::AbstractMatrix{ComplexF64}, B::AbstractMatrix{ComplexF64})::Co
     return r
 end
 
-function calibrate!(hb!::Heatbath{lat}, cfg::Configuration{lat}) where {lat}
+function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
     ar = hb!(cfg)
     while ar < 0.3 || ar > 0.5
         if ar < 0.3
@@ -281,23 +248,23 @@ function calibrate!(hb!::Heatbath{lat}, cfg::Configuration{lat}) where {lat}
     end
 end
 
-function (hb::Heatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
+function (hb::Heatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
     resample!(hb.sample!, hb.sample!.σ)
     tot = 0
     acc = 0
-    @views for i′ in lat
-        i = rand(1:volume(lat))
-        μ = rand(1:lat.d)
+    @views for i′ in lat.geom
+        i = rand(1:volume(lat.geom))
+        μ = rand(1:lat.geom.d)
         # The local action is -1/(2*g²) Re Tr A U. First compute the staple A.
-        iμ = trans(lat, i, μ)
+        iμ = translate(lat.geom, i, μ)
         hb.A .= 0
-        for ν in 1:lat.d
+        for ν in 1:lat.geom.d
             if μ == ν
                 continue
             end
-            iν = trans(lat, i, ν, n=1)
-            iν′ = trans(lat, i, ν, n=-1)
-            iμν′ = trans(lat, iμ, ν, n=-1)
+            iν = translate(lat.geom, i, ν, n=1)
+            iν′ = translate(lat.geom, i, ν, n=-1)
+            iμν′ = translate(lat.geom, iμ, ν, n=-1)
 
             adjoint!(hb.D, cfg.U[:,:,μ,iν])
             mul!(hb.C, hb.D, cfg.U[:,:,ν,iμ])
@@ -335,15 +302,27 @@ struct PseudoHeatbath{lat}
     # TODO
 end
 
-function (phb::PseudoHeatbath{lat})(cfg::Configuration{lat})::Float64 where {lat}
+function (phb::PseudoHeatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
     # TODO
 end
 
-struct Observer{lat}
+function Sampler(lat::YangMillsLattice, algorithm=:Heatbath)
+    cfg = zero(Cfg{lat})
+    if algorithm == :Heatbath
+        sample! = Heatbath{lat}()
+    elseif algorithm == :PseudoHeatbath
+        sample! = PseudoHeatbath{lat}()
+    else
+        error("Unknown algorithm requested")
+    end
+    return sample!, cfg
+end
+
+struct Obs{lat}
     U::Matrix{ComplexF64}
     V::Matrix{ComplexF64}
     W::Matrix{ComplexF64}
-    function Observer{lat}() where {lat}
+    function Obs{lat}() where {lat}
         U = zeros(ComplexF64, (lat.N,lat.N))
         V = zeros(ComplexF64, (lat.N,lat.N))
         W = zeros(ComplexF64, (lat.N,lat.N))
@@ -351,16 +330,16 @@ struct Observer{lat}
     end
 end
 
-function (obs::Observer{lat})(cfg::Configuration{lat})::Dict{String,Any} where {lat}
+function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
     r["polyakov"] = polyakov(obs,cfg)
     return r
 end
 
-function plaquette(obs::Observer{lat}, cfg::Configuration{lat}, i::Int, μ::Int, ν::Int)::ComplexF64 where {lat}
-    iμ = trans(lat, i, μ)
-    iν = trans(lat, i, ν)
+function plaquette(obs::Obs{lat}, cfg::Cfg{lat}, i::Int, μ::Int, ν::Int)::ComplexF64 where {lat}
+    iμ = translate(lat.geom, i, μ)
+    iν = translate(lat.geom, i, ν)
     # Evaluate: U(i,ν)† U(iν,μ)† U(iμ,ν) U(i,μ)
     # This is: (U(iν,μ) U(i,ν))† U(iμ,ν) U(i,μ)
     @views mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
@@ -370,26 +349,26 @@ function plaquette(obs::Observer{lat}, cfg::Configuration{lat}, i::Int, μ::Int,
     return 1-tr(obs.V)/lat.N
 end
 
-function plaquette(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+function plaquette(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
     r::Float64 = 0.
-    for i in lat
-        for μ in 1:lat.d
+    for i in lat.geom
+        for μ in 1:lat.geom.d
             for ν in 1:(μ-1)
                 r += real(plaquette(obs, cfg, i, μ, ν))
             end
         end
     end
-    r *= 2 / (volume(lat) * lat.d * (lat.d-1))
+    r *= 2 / (volume(lat.geom) * lat.geom.d * (lat.geom.d-1))
     return r
 end
 
-function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat}
+function action(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
     S::Float64 = 0.
-    @views for i in lat
-        for μ in 1:lat.d
+    @views for i in lat.geom
+        for μ in 1:lat.geom.d
             for ν in 1:(μ-1)
-                iμ = trans(lat, i, μ)
-                iν = trans(lat, i, ν)
+                iμ = translate(lat.geom, i, μ)
+                iν = translate(lat.geom, i, ν)
                 # Evaluate: U(i,ν)† U(iν,μ)† U(iμ,ν) U(i,μ)
                 # This is: (U(iν,μ) U(i,ν))† U(iμ,ν) U(i,μ)
                 mul!(obs.U, cfg.U[:,:,μ,iν], cfg.U[:,:,ν,i])
@@ -403,12 +382,12 @@ function action(obs::Observer{lat}, cfg::Configuration{lat})::Float64 where {lat
     return S
 end
 
-function action(cfg::Configuration{lat})::Float64 where {lat}
-    obs = Observer{lat}()
+function action(cfg::Cfg{lat})::Float64 where {lat}
+    obs = Obs{lat}()
     action(obs, cfg)
 end
 
-function wilsonloop(obs::Observer{lat}, cfg::Configuration{lat}, i, μ, Lx, ν, Ly)::ComplexF64 where {lat}
+function wilsonloop(obs::Obs{lat}, cfg::Cfg{lat}, i, μ, Lx, ν, Ly)::ComplexF64 where {lat}
     obs.U .= 0
     for a in 1:lat.N
         obs.U[a,a] = 1
@@ -416,21 +395,21 @@ function wilsonloop(obs::Observer{lat}, cfg::Configuration{lat}, i, μ, Lx, ν, 
     for n in 1:Lx
         @views mul!(obs.V, cfg.U[:,:,μ,i], obs.U)
         obs.U .= obs.V
-        i = trans(lat, i, μ)
+        i = translate(lat.geom, i, μ)
     end
     for n in 1:Ly
         @views mul!(obs.V, cfg.U[:,:,ν,i], obs.U)
         obs.U .= obs.V
-        i = trans(lat, i, ν)
+        i = translate(lat.geom, i, ν)
     end
     for n in 1:Lx
-        i = trans(lat, i, μ, n=-1)
+        i = translate(lat.geom, i, μ, n=-1)
         @views adjoint!(obs.W, cfg.U[:,:,μ,i])
         mul!(obs.V, obs.W, obs.U)
         obs.U .= obs.V
     end
     for n in 1:Ly
-        i = trans(lat, i, ν, n=-1)
+        i = translate(lat.geom, i, ν, n=-1)
         @views adjoint!(obs.W, cfg.U[:,:,ν,i])
         mul!(obs.V, obs.W, obs.U)
         obs.U .= obs.V
@@ -438,69 +417,69 @@ function wilsonloop(obs::Observer{lat}, cfg::Configuration{lat}, i, μ, Lx, ν, 
     return 1 - tr(obs.U)/lat.N
 end
 
-function wilsonloop(obs::Observer{lat}, cfg::Configuration{lat}, Lx::Int, Lt::Int)::ComplexF64 where {lat}
+function wilsonloop(obs::Obs{lat}, cfg::Cfg{lat}, Lx::Int, Lt::Int)::ComplexF64 where {lat}
     r::ComplexF64 = 0.
-    ν = lat.d
-    for i in lat
-        for μ in 1:lat.d-1
+    ν = lat.geom.d
+    for i in lat.geom
+        for μ in 1:lat.geom.d-1
             r += wilsonloop(obs, cfg, i, μ, Lx, ν, Lt)
         end
     end
-    return r/(volume(lat)*(lat.d-1))
+    return r/(volume(lat.geom)*(lat.geom.d-1))
 end
 
-function polyakov(obs::Observer{lat}, cfg::Configuration{lat}, i::Int)::ComplexF64 where {lat}
+function polyakov(obs::Obs{lat}, cfg::Cfg{lat}, i::Int)::ComplexF64 where {lat}
     obs.V .= 0
     for a in 1:lat.N
         obs.V[a,a] = 1.
     end
-    for t in 1:lat.β
-        @views mul!(obs.U, cfg.U[:,:,lat.d,i], obs.V)
+    for t in 1:lat.geom.β
+        @views mul!(obs.U, cfg.U[:,:,lat.geom.d,i], obs.V)
         obs.V .= obs.U
-        i = trans(lat, i, lat.d)
+        i = translate(lat.geom, i, lat.geom.d)
     end
     return tr(obs.U)
 end
 
-function polyakov(obs::Observer{lat}, cfg::Configuration{lat})::ComplexF64 where {lat}
+function polyakov(obs::Obs{lat}, cfg::Cfg{lat})::ComplexF64 where {lat}
     r::ComplexF64 = 0.
-    for i in 1:(lat.L^(lat.d-1))
+    for i in 1:(lat.geom.L^(lat.geom.d-1))
         r += polyakov(obs, cfg, i)
     end
-    return r/(lat.L^(lat.d-1))
+    return r/(lat.geom.L^(lat.geom.d-1))
 end
 
-function quarkpotential(obs::Observer{lat}, cfg::Configuration{lat}, x::Int)::Float64 where {lat}
+function quarkpotential(obs::Obs{lat}, cfg::Cfg{lat}, x::Int)::Float64 where {lat}
     z::Float64 = 0.
-    for i in 1:(lat.L^(lat.d-1))
-        for μ in 1:lat.d-1
-            j = trans(lat, i, μ, n=x)
+    for i in 1:(lat.geom.L^(lat.geom.d-1))
+        for μ in 1:lat.geom.d-1
+            j = translate(lat.geom, i, μ, n=x)
             P = polyakov(obs, cfg, i)
             P′ = polyakov(obs, cfg, j)
-            z += real((P*conj(P′))/(lat.d-1)/(lat.L^(lat.d-1)))
+            z += real((P*conj(P′))/(lat.geom.d-1)/(lat.geom.L^(lat.geom.d-1)))
         end
     end
     if z < 0
         z = 0
     end
-    return -log(z)/lat.β
+    return -log(z)/lat.geom.β
 end
 
-function quarkpotential!(v::Vector{Float64}, obs::Observer{lat}, cfg::Configuration{lat}) where {lat}
-    for x in 1:lat.L
+function quarkpotential!(v::Vector{Float64}, obs::Obs{lat}, cfg::Cfg{lat}) where {lat}
+    for x in 1:lat.geom.L
         v[i] = quarkpotential(obs, cfg, x)
     end
 end
 
-function quarkpotential(obs::Observer{lat}, cfg::Configuration{lat})::Vector{Float64} where {lat}
-    v = zeros(Float64, lat.L)
+function quarkpotential(obs::Obs{lat}, cfg::Cfg{lat})::Vector{Float64} where {lat}
+    v = zeros(Float64, lat.geom.L)
     quarkpotential!(v, obs, cfg)
     return v
 end
 
-function write(io::IO, cfg::Configuration{lat}) where {lat}
-    for i in lat
-        for μ in 1:lat.d
+function write(io::IO, cfg::Cfg{lat}) where {lat}
+    for i in lat.geom
+        for μ in 1:lat.geom.d
             for a in 1:lat.N
                 for b in 1:lat.N
                     write(io, hton(cfg.U[a,b,μ,i]))
@@ -510,10 +489,10 @@ function write(io::IO, cfg::Configuration{lat}) where {lat}
     end
 end
 
-function read(io::IO, T::Type{Configuration{lat}})::Configuration{lat} where {lat}
+function read(io::IO, T::Type{Cfg{lat}})::Cfg{lat} where {lat}
     cfg = zero(T)
-    for i in lat
-        for μ in 1:lat.d
+    for i in lat.geom
+        for μ in 1:lat.geom.d
             for a in 1:lat.N
                 for b in 1:lat.N
                     c = read(io, ComplexF64)
