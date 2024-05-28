@@ -4,7 +4,7 @@ using Test
 
 using LatticeFieldTheories
 
-@testset "Non-allocation" begin
+@testset verbose=true "Non-allocation" begin
     @testset "Lattice iteration does not allocate" begin
         geom = CartesianGeometry(3,5,3)
         s::Int = 0
@@ -17,7 +17,14 @@ using LatticeFieldTheories
 
     @testset "Adjacency does not allocate" begin
         geom = CartesianGeometry(3,5,3)
-        # TODO
+        allocs = @allocations adjacent(geom, 1)
+        @test allocs == 0
+        s::Int = 0
+        allocs = @allocations for i in adjacent(geom, 1)
+            s += 1
+        end
+        @test allocs == 0
+        @test s == 6
     end
 end
 

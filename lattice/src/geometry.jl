@@ -47,15 +47,16 @@ function coordinate(g::CartesianGeometry, i::Int, μ::Int)::Int
     end
 end
 
-struct CartesianAdjacency{g}
+struct CartesianAdjacency{G}
+    g::G
     i::Int
 end
 
-function adjacent(g, i::Int)::CartesianAdjacency{g}
-    return CartesianAdjacency{g}(i)
+function adjacent(g::G, i::Int)::CartesianAdjacency{G} where {G}
+    return CartesianAdjacency{G}(g,i)
 end
 
-function iterate(adj::CartesianAdjacency{g}, s::Tuple{Int64,Bool}=(0,true)) where {g}
+function iterate(adj::CartesianAdjacency{G}, s::Tuple{Int64,Bool}=(0,true)) where {G}
     μ, δ = s
     if δ
         μ += 1
@@ -63,10 +64,10 @@ function iterate(adj::CartesianAdjacency{g}, s::Tuple{Int64,Bool}=(0,true)) wher
     else
         δ = true
     end
-    if μ > g.d
+    if μ > adj.g.d
         return nothing
     else
-        j = translate(g, adj.i, μ, n=(δ ? 1 : -1))
+        j = translate(adj.g, adj.i, μ, n=(δ ? 1 : -1))
         return (j, (μ,δ))
     end
 end
