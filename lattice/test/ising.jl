@@ -7,7 +7,7 @@ using LatticeFieldTheories
 @testset "Non-allocation" begin
     @testset "Heatbath does not allocate" begin
         lat = Ising.IsotropicLattice(CartesianGeometry(3,5,3),0.3)
-        sample!, cfg = Sampler(lat)
+        sample!, cfg = Sampler(lat, :Heatbath)
         allocs_calibrate = @allocations calibrate!(sample!, cfg)
         @test allocs_calibrate == 0
         allocs = @allocations sample!(cfg)
@@ -15,6 +15,8 @@ using LatticeFieldTheories
     end
 
     @testset "Swendesen-Wang does not allocate" begin
+        lat = Ising.IsotropicLattice(CartesianGeometry(3,5,3),0.3)
+        sample!, cfg = Sampler(lat, :SwendsenWang)
         # TODO
     end
 

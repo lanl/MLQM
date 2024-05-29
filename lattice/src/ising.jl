@@ -1,5 +1,7 @@
 module Ising
 
+using DataStructures: CircularDeque
+
 import Base: iterate, rand, read, write, zero
 
 using ..Geometries
@@ -64,6 +66,39 @@ function (hb::Heatbath{lat})(cfg::Cfg{geom}) where {lat,geom}
 end
 
 struct SwendsenWang{lat}
+    b::Array{Bool,2}
+    v::Array{Bool}
+    q::CircularDeque{Int}
+
+    function SwendsenWang{lat}() where {lat}
+        geom = lat.geom
+        b = zeros(Bool, (geom.d,volume(geom)))
+        v = zeros(Bool, volume(geom))
+        q = CircularDeque{Int}(volume(geom))
+        new(b,v,q)
+    end
+end
+
+function calibrate!(sw!::SwendsenWang{lat}, cfg::Cfg{lat}) where {lat}
+end
+
+function (sw::SwendsenWang{lat})(cfg::Cfg{lat}) where {lat}
+    geom = lat.geom
+    # Set all the bonds.
+    # TODO
+
+    sw.v .= false
+    for i in geom
+        if sw.v[i]
+            continue
+        end
+        # Flood-fill
+        push!(q, i)
+        while !isempty(sw.q)
+            j = pop!(q)
+            # TODO
+        end
+    end
 end
 
 function Sampler(lat::IsotropicLattice, algorithm=:Heatbath)
@@ -76,12 +111,6 @@ function Sampler(lat::IsotropicLattice, algorithm=:Heatbath)
         error("Unknown algorithm requested")
     end
     return sample!, cfg
-end
-
-function calibrate!(sw!::SwendsenWang{lat}, cfg::Cfg{lat}) where {lat}
-end
-
-function (sw::SwendsenWang{lat})(cfg::Cfg{lat}) where {lat}
 end
 
 struct Obs{Lat}
