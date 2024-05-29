@@ -96,8 +96,17 @@ end
 function action(obs::Obs{lat}, cfg::Cfg{geom})::Float64 where {lat,geom}
     S::Float64 = 0.
     for i in geom
+        for j in adjacent(geom, i)
+            # Only include each pair once.
+            if j < i
+                if cfg.σ[j] == cfg.σ[i]
+                    S -= lat.J
+                else
+                    S += lat.J
+                end
+            end
+        end
     end
-    # TODO
     return S
 end
 

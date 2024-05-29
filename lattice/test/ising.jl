@@ -17,6 +17,14 @@ using LatticeFieldTheories
     @testset "Swendesen-Wang does not allocate" begin
         # TODO
     end
+
+    @testset "Action does not allocate" begin
+        lat = Ising.IsotropicLattice(CartesianGeometry(3,5,3),0.3)
+        sample!, cfg = Sampler(lat)
+        obs = Ising.Obs{lat}()
+        allocs = @allocations Ising.action(obs, cfg)
+        @test allocs == 0
+    end
 end
 
 @testset "Serialization" begin
