@@ -36,7 +36,19 @@ end
 struct Heatbath{lat}
 end
 
+function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
+end
+
+function (hb::Heatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
+end
+
 struct Wolff{lat}
+end
+
+function calibrate!(hb!::Wolff{lat}, cfg::Cfg{lat}) where {lat}
+end
+
+function (hb::Wolff{lat})(cfg::Cfg{lat})::Float64 where {lat}
 end
 
 struct Obs{lat}

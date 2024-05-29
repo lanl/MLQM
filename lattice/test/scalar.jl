@@ -5,6 +5,11 @@ using Test
 using LatticeFieldTheories
 
 @testset "Non-allocation" begin
+    @testset "Heatbath does not allocate" begin
+    end
+
+    @testset "Wolff does not allocate" begin
+    end
 end
 
 @testset "Serialization" begin
