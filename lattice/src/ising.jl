@@ -67,7 +67,7 @@ end
 
 struct SwendsenWang{lat}
     b::Array{Bool,2}
-    v::Array{Bool}
+    v::Vector{Bool}
     q::CircularDeque{Int}
 
     function SwendsenWang{lat}() where {lat}
@@ -79,13 +79,16 @@ struct SwendsenWang{lat}
     end
 end
 
-function calibrate!(sw!::SwendsenWang{lat}, cfg::Cfg{lat}) where {lat}
+function calibrate!(sw!::SwendsenWang{lat}, cfg::Cfg{geom}) where {lat,geom}
 end
 
-function (sw::SwendsenWang{lat})(cfg::Cfg{lat}) where {lat}
-    geom = lat.geom
+function (sw::SwendsenWang{lat})(cfg::Cfg{geom}) where {lat,geom}
     # Set all the bonds.
-    # TODO
+    for i in geom
+        for μ in 1:geom.d
+            # TODO
+        end
+    end
 
     sw.v .= false
     for i in geom
@@ -93,9 +96,9 @@ function (sw::SwendsenWang{lat})(cfg::Cfg{lat}) where {lat}
             continue
         end
         # Flood-fill
-        push!(q, i)
+        push!(sw.q, i)
         while !isempty(sw.q)
-            j = pop!(q)
+            j = pop!(sw.q)
             # TODO
         end
     end

@@ -17,7 +17,11 @@ using LatticeFieldTheories
     @testset "Swendesen-Wang does not allocate" begin
         lat = Ising.IsotropicLattice(CartesianGeometry(3,5,3),0.3)
         sample!, cfg = Sampler(lat, :SwendsenWang)
-        # TODO
+        allocs_calibrate = @allocations calibrate!(sample!, cfg)
+        @test allocs_calibrate == 0
+        sample!(cfg) # The first call allocates a bit.
+        allocs = @allocations sample!(cfg)
+        @test allocs == 0
     end
 
     @testset "Action does not allocate" begin
