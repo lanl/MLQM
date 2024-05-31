@@ -42,7 +42,7 @@ function main()
     end
     modelExpr = Meta.parse(dos["lattice"])
     lat = eval(modelExpr)
-    obs = Observer(lat)()
+    obs = Observer(lat)
     df = DataFrame(:n => [])
     for sample in dos
         cfg = open(sample) do f

@@ -7,7 +7,7 @@ import Base: iterate, rand, read, write, zero
 using ..Geometries
 using ..Lattices
 
-import ..Lattices: Sampler, calibrate!
+import ..Lattices: Sampler, Observer, calibrate!
 
 abstract type IsingLattice <: Lattice end
 
@@ -84,9 +84,11 @@ end
 
 function (sw::SwendsenWang{lat})(cfg::Cfg{geom}) where {lat,geom}
     # Set all the bonds.
+    prob = exp(-lat.J)
     for i in geom
         for μ in 1:geom.d
-            # TODO
+            j = translate(geom, i, μ)
+            sw.b[μ,i] = cfg.σ[i] == cfg.σ[j] && rand() > prob
         end
     end
 
@@ -95,16 +97,32 @@ function (sw::SwendsenWang{lat})(cfg::Cfg{geom}) where {lat,geom}
         if sw.v[i]
             continue
         end
+        # The new state for this cluster:
+        σ = rand(Bool)
         # Flood-fill
+        sw.v[i] = true
         push!(sw.q, i)
         while !isempty(sw.q)
-            j = pop!(sw.q)
-            # TODO
+            k = pop!(sw.q)
+            cfg.σ[k] = σ
+            for μ in 1:geom.d
+                j = translate(geom, k, μ, 1)
+                if sw.b[μ,k] && !sw.v[j]
+                    sw.v[j] = true
+                    push!(sw.q, j)
+                end
+
+                j = translate(geom, k, μ, -1)
+                if sw.b[μ,j] && !sw.v[j]
+                    sw.v[j] = true
+                    push!(sw.q, j)
+                end
+            end
         end
     end
 end
 
-function Sampler(lat::IsotropicLattice, algorithm=:Heatbath)
+function Sampler(lat::IsotropicLattice, algorithm::Symbol=:Heatbath)
     cfg = zero(Cfg{lat.geom})
     if algorithm == :Heatbath
         sample! = Heatbath{lat}()
@@ -116,7 +134,9 @@ function Sampler(lat::IsotropicLattice, algorithm=:Heatbath)
     return sample!, cfg
 end
 
-struct Obs{Lat}
+Sampler(lat, alg::String) = Sampler(lat, Symbol(alg))
+
+struct Obs{lat}
 end
 
 function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
@@ -140,6 +160,10 @@ function action(obs::Obs{lat}, cfg::Cfg{geom})::Float64 where {lat,geom}
         end
     end
     return S
+end
+
+function Observer(lat::IsotropicLattice)
+    return Obs{lat}
 end
 
 function write(io::IO, cfg::Cfg{geom}) where {geom}

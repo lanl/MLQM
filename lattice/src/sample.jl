@@ -20,6 +20,9 @@ function main()
                 help = "Number of samples"
                 arg_type = Int
                 default = 100
+            "-A","--algorithm"
+                help = "Sampling algorithm"
+                arg_type = String
         end
         parse_args(s)
     end
@@ -34,7 +37,11 @@ function main()
                   )
     dos = DOS(args["sampleDirectory"], latmeta)
 
-    sample!, cfg = Sampler(lat)
+    sample!, cfg = if isnothing(args["algorithm"])
+        Sampler(lat)
+    else
+        Sampler(lat, args["algorithm"])
+    end
     calibrate!(sample!, cfg)
     for n in 1:args["samples"]
         for s in 1:100

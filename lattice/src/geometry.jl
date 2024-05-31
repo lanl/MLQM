@@ -25,7 +25,7 @@ function iterate(g::CartesianGeometry, i::Int64=0)
     i < volume(g) ? (i+1,i+1) : nothing
 end
 
-function translate(g::CartesianGeometry, i::Int, μ::Int; n::Int=1)::Int
+function translate(g::CartesianGeometry, i::Int, μ::Int, n::Int=1)::Int
     i -= 1
     v = g.L^(μ-1)
     V = if μ == g.d
@@ -67,7 +67,7 @@ function iterate(adj::CartesianAdjacency{G}, s::Tuple{Int64,Bool}=(0,true)) wher
     if μ > adj.g.d
         return nothing
     else
-        j = translate(adj.g, adj.i, μ, n=(δ ? 1 : -1))
+        j = translate(adj.g, adj.i, μ, (δ ? 1 : -1))
         return (j, (μ,δ))
     end
 end
