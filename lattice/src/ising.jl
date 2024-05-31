@@ -53,12 +53,13 @@ function (hb::Heatbath{lat})(cfg::Cfg{geom}) where {lat,geom}
     for i′ in geom
         i = rand(1:volume(geom))
         ntrue::Int = 0
+        nfalse::Int = 0
         for j in adjacent(geom, i)
             ntrue += cfg.σ[j]
+            nfalse += !(cfg.σ[j])
         end
-        nfalse = 2^geom.d - ntrue
         S = J * (ntrue - nfalse)
-        ptrue = exp(-S) / (exp(S) + exp(-S))
+        ptrue = exp(S) / (exp(S) + exp(-S))
         if rand() < ptrue
             cfg.σ[i] = true
         else
@@ -74,6 +75,9 @@ struct SwendsenWang{lat}
 
     function SwendsenWang{lat}() where {lat}
         geom = lat.geom
+        if geom.L ≤ 2 || geom.β ≤ 2
+            error("Swedsen-Wang will not be correct for L ≤ 2")
+        end
         b = zeros(Bool, (geom.d,volume(geom)))
         v = zeros(Bool, volume(geom))
         q = CircularDeque{Int}(volume(geom))
@@ -86,7 +90,7 @@ end
 
 function (sw::SwendsenWang{lat})(cfg::Cfg{geom}) where {lat,geom}
     # Set all the bonds.
-    prob = exp(-lat.J)
+    prob = exp(-2*lat.J)
     for i in geom
         for μ in 1:geom.d
             j = translate(geom, i, μ)
