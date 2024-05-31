@@ -7,6 +7,7 @@ export CartesianGeometry
 export volume, translate, coordinate, adjacent
 
 export Lattice, Configuration, Observer, Sampler
+export CfgType
 export calibrate!
 
 export Ising

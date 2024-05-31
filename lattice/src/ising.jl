@@ -7,7 +7,7 @@ import Base: iterate, rand, read, write, zero
 using ..Geometries
 using ..Lattices
 
-import ..Lattices: Sampler, Observer, calibrate!
+import ..Lattices: Sampler, Observer, calibrate!, CfgType
 
 abstract type IsingLattice <: Lattice end
 
@@ -37,6 +37,8 @@ function rand(T::Type{Cfg{geom}})::Cfg{geom} where {geom}
     end
     return cfg
 end
+
+CfgType(lat::IsotropicLattice) = Cfg{lat.geom}
 
 struct Heatbath{lat} <: Sampler
 end
@@ -139,7 +141,7 @@ Sampler(lat, alg::String) = Sampler(lat, Symbol(alg))
 struct Obs{lat}
 end
 
-function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
+function (obs::Obs{lat})(cfg::Cfg{geom})::Dict{String,Any} where {lat,geom}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
     return r
@@ -163,7 +165,7 @@ function action(obs::Obs{lat}, cfg::Cfg{geom})::Float64 where {lat,geom}
 end
 
 function Observer(lat::IsotropicLattice)
-    return Obs{lat}
+    return Obs{lat}()
 end
 
 function write(io::IO, cfg::Cfg{geom}) where {geom}

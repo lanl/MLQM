@@ -42,11 +42,12 @@ function main()
     end
     modelExpr = Meta.parse(dos["lattice"])
     lat = eval(modelExpr)
+    Cfg = CfgType(lat)
     obs = Observer(lat)
     df = DataFrame(:n => [])
     for sample in dos
         cfg = open(sample) do f
-            read(f, Configuration(lat))
+            read(f, Cfg)
         end
         observation = obs(cfg)
         observation["n"] = sample["n"]
@@ -57,6 +58,7 @@ function main()
         end
         push!(df, observation)
     end
+    println(mean.(eachcol(df)))
     if args["vis"]
         vdir = joinpath(args["sampleDirectory"], "vis")
         mkpath(vdir)
