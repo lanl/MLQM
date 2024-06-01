@@ -28,4 +28,29 @@ using LatticeFieldTheories
     end
 end
 
+@testset "CartesianGeometry" begin
+    for β in 2:20
+        geom = CartesianGeometry(4, 12, β)
+        for k in 1:100
+            μ = rand(1:geom.d)
+            i = rand(1:volume(geom))
+            n = rand(-geom.L:geom.L)
+            j = translate(geom, i, μ, n)
+            for ν in 1:geom.d
+                x = coordinate(geom, i, ν)
+                y = coordinate(geom, j, ν)
+                if μ == ν
+                    if μ == geom.d
+                        @test 1+mod(x+n-1,geom.β) == y
+                    else
+                        @test 1+mod(x+n-1,geom.L) == y
+                    end
+                else
+                    @test x == y
+                end
+            end
+        end
+    end
+end
+
 end

@@ -148,17 +148,17 @@ function (s::SpecialUnitarySampler)(U::AbstractArray{ComplexF64,2})
     @views U .= s.V[:,:,k]
 end
 
-struct YangMillsLattice
+struct WilsonLattice
     geom::CartesianGeometry
     g::Float64
     N::Int
 
-    function YangMillsLattice(L::Int, g::Float64; β::Int=L, N::Int=3, d::Int=4)
+    function WilsonLattice(L::Int, g::Float64; β::Int=L, N::Int=3, d::Int=4)
         new(CartesianGeometry(d,L,β),g,N)
     end
 end
 
-wilson_beta(lat::YangMillsLattice)::Float64 = 2*lat.N/(lat.g^2)
+wilson_beta(lat::WilsonLattice)::Float64 = 2*lat.N/(lat.g^2)
 
 struct Cfg{lat}
     U::Array{ComplexF64,4}
@@ -200,7 +200,7 @@ function gauge!(cfg::Cfg{lat}, i::Int, U::AbstractMatrix{ComplexF64}, V=nothing)
     adjoint!(V, U)
     U .= V
     for μ in 1:lat.geom.d
-        j = translate(lat.geom, i, μ, n=-1)
+        j = translate(lat.geom, i, μ, -1)
         @views mul!(V, U, cfg.U[:,:,μ,j])
         cfg.U[:,:,μ,j] .= V
     end
@@ -262,9 +262,9 @@ function (hb::Heatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
             if μ == ν
                 continue
             end
-            iν = translate(lat.geom, i, ν, n=1)
-            iν′ = translate(lat.geom, i, ν, n=-1)
-            iμν′ = translate(lat.geom, iμ, ν, n=-1)
+            iν = translate(lat.geom, i, ν, 1)
+            iν′ = translate(lat.geom, i, ν, -1)
+            iμν′ = translate(lat.geom, iμ, ν, -1)
 
             adjoint!(hb.D, cfg.U[:,:,μ,iν])
             mul!(hb.C, hb.D, cfg.U[:,:,ν,iμ])
@@ -306,7 +306,7 @@ function (phb::PseudoHeatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
     # TODO
 end
 
-function Sampler(lat::YangMillsLattice, algorithm=:Heatbath)
+function Sampler(lat::WilsonLattice, algorithm=:Heatbath)
     cfg = zero(Cfg{lat})
     if algorithm == :Heatbath
         sample! = Heatbath{lat}()
@@ -403,13 +403,13 @@ function wilsonloop(obs::Obs{lat}, cfg::Cfg{lat}, i, μ, Lx, ν, Ly)::ComplexF64
         i = translate(lat.geom, i, ν)
     end
     for n in 1:Lx
-        i = translate(lat.geom, i, μ, n=-1)
+        i = translate(lat.geom, i, μ, -1)
         @views adjoint!(obs.W, cfg.U[:,:,μ,i])
         mul!(obs.V, obs.W, obs.U)
         obs.U .= obs.V
     end
     for n in 1:Ly
-        i = translate(lat.geom, i, ν, n=-1)
+        i = translate(lat.geom, i, ν, -1)
         @views adjoint!(obs.W, cfg.U[:,:,ν,i])
         mul!(obs.V, obs.W, obs.U)
         obs.U .= obs.V
@@ -453,7 +453,7 @@ function quarkpotential(obs::Obs{lat}, cfg::Cfg{lat}, x::Int)::Float64 where {la
     z::Float64 = 0.
     for i in 1:(lat.geom.L^(lat.geom.d-1))
         for μ in 1:lat.geom.d-1
-            j = translate(lat.geom, i, μ, n=x)
+            j = translate(lat.geom, i, μ, x)
             P = polyakov(obs, cfg, i)
             P′ = polyakov(obs, cfg, j)
             z += real((P*conj(P′))/(lat.geom.d-1)/(lat.geom.L^(lat.geom.d-1)))
