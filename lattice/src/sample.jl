@@ -20,6 +20,14 @@ function main()
                 help = "Number of samples"
                 arg_type = Int
                 default = 100
+            "--skip"
+                help = "Number of steps to skip for thermalization"
+                arg_type = Int
+                default = 1
+            "--steps"
+                help = "Number of steps to take in between samples"
+                arg_type = Int
+                default = 1
             "-A","--algorithm"
                 help = "Sampling algorithm"
                 arg_type = String
@@ -43,8 +51,11 @@ function main()
         Sampler(lat, args["algorithm"])
     end
     calibrate!(sample!, cfg)
+    for s in 1:args["skip"]
+        sample!(cfg)
+    end
     for n in 1:args["samples"]
-        for s in 1:100
+        for s in 1:args["steps"]
             sample!(cfg)
         end
         cfgmeta = Dict("NOW" => now(),
