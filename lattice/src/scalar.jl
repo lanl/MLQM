@@ -258,13 +258,13 @@ function action(cfg::Cfg{lat}, i::Int, ϕ′)::Float64 where {lat}
     S::Float64 = 0.
     ϕ² = 0.
     for n in 1:lat.N
-        ϕ² += cfg.ϕ[n,i]^2
+        ϕ² += ϕ′[n]^2
     end
     S += lat.m² * ϕ² / 2
     S += lat.λ * ϕ²^2 / 4
     for j in adjacent(lat.geom, i)
         for n in 1:lat.N
-            S += (cfg.ϕ[n,i] - cfg.ϕ[n,j])^2 / 2.
+            S += (ϕ′[n] - cfg.ϕ[n,j])^2 / 2.
         end
     end
     return S
