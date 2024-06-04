@@ -207,6 +207,18 @@ function (wolff::Wolff{lat})(cfg::Cfg{lat})::Float64 where {lat}
     return acc/tot
 end
 
+function Sampler(lat::IsotropicLattice, algorithm::Symbol=:Heatbath)
+    cfg = zero(Cfg{lat.geom})
+    if algorithm == :Heatbath
+        sample! = Heatbath{lat}()
+    elseif algorithm == :Wolff
+        sample! = Wolff{lat}()
+    else
+        error("Unknown algorithm requested")
+    end
+    return sample!, cfg
+end
+
 struct Obs{lat}
 end
 

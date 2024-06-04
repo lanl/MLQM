@@ -140,8 +140,6 @@ function Sampler(lat::IsotropicLattice, algorithm::Symbol=:Heatbath)
     return sample!, cfg
 end
 
-Sampler(lat, alg::String) = Sampler(lat, Symbol(alg))
-
 struct Obs{lat}
 end
 

@@ -13,4 +13,6 @@ function CfgType end
 
 function calibrate! end
 
+Sampler(lat, alg::String) = Sampler(lat, Symbol(alg))
+
 end
