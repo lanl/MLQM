@@ -34,6 +34,8 @@ function rand(::Type{Cfg{lat}})::Cfg{lat} where {lat}
     return cfg
 end
 
+CfgType(lat::IsotropicLattice) = Cfg{lat}
+
 mutable struct Heatbath{lat}
     σ::Float64
     ϕp::Vector{Float64}
@@ -208,7 +210,7 @@ function (wolff::Wolff{lat})(cfg::Cfg{lat})::Float64 where {lat}
 end
 
 function Sampler(lat::IsotropicLattice, algorithm::Symbol=:Heatbath)
-    cfg = zero(Cfg{lat.geom})
+    cfg = zero(Cfg{lat})
     if algorithm == :Heatbath
         sample! = Heatbath{lat}()
     elseif algorithm == :Wolff
