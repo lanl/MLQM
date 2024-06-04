@@ -34,7 +34,7 @@ function rand(::Type{Cfg{lat}})::Cfg{lat} where {lat}
     return cfg
 end
 
-struct Heatbath{lat}
+mutable struct Heatbath{lat}
     σ::Float64
     ϕp::Vector{Float64}
 
@@ -52,10 +52,10 @@ function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
     ar = hb!(cfg)
     while ar < 0.3 || ar > 0.5
         if ar < 0.3
-            hb!.sample!.σ *= 0.95
+            hb!.σ *= 0.95
         end
         if ar > 0.5
-            hb!.sample!.σ *= 1.05
+            hb!.σ *= 1.05
         end
         ar = hb!(cfg)
     end
@@ -76,15 +76,18 @@ function (hb::Heatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
             S′ = action(cfg, i, hb.ϕp)
             if rand() < exp(S-S′)
                 cfg.ϕ[:,i] .= hb.ϕp
+                acc += 1
             end
+            tot += 1
         end
     end
     return acc / tot
 end
 
-struct Wolff{lat}
+mutable struct Wolff{lat}
     σ::Float64
     ϕp::Vector{Float64}
+    r::Vector{Float64}
     b::Array{Bool,2}
     v::Vector{Bool}
     q::CircularDeque{Int}
@@ -95,10 +98,11 @@ struct Wolff{lat}
         if geom.L ≤ 2 || geom.β ≤ 2
             error("Wolff will not be correct for L ≤ 2")
         end
+        r = zeros(Float64, lat.N)
         b = zeros(Bool, (geom.d,volume(geom)))
         v = zeros(Bool, volume(geom))
         q = CircularDeque{Int}(volume(geom))
-        return new{lat}(σ, ϕp, b, v, q)
+        return new{lat}(σ, ϕp, r, b, v, q)
     end
 end
 
@@ -110,23 +114,96 @@ function calibrate!(wolff!::Wolff{lat}, cfg::Cfg{lat}) where {lat}
     ar = wolff!(cfg)
     while ar < 0.3 || ar > 0.5
         if ar < 0.3
-            wolff!.sample!.σ *= 0.95
+            wolff!.σ *= 0.95
         end
         if ar > 0.5
-            wolff!.sample!.σ *= 1.05
+            wolff!.σ *= 1.05
         end
         ar = wolff!(cfg)
     end
 end
 
 function (wolff::Wolff{lat})(cfg::Cfg{lat})::Float64 where {lat}
-    # Cluster update
-    # TODO
+    J = 1.
+    # Cluster update. Pick the axis.
+    randn!(wolff.r)
+    nrm = 0.
+    for n in 1:lat.N
+        nrm += wolff.r[n]^2
+    end
+    nrm = √nrm
+    wolff.r ./= nrm
+    # Set bonds.
+    for i in lat.geom
+        for μ in 1:lat.geom.d
+            j = translate(lat.geom, i, μ)
+            ipi = 0.
+            ipj = 0.
+            for n in 1:lat.N
+                ipi += cfg.ϕ[n,i] * wolff.r[n]
+                ipj += cfg.ϕ[n,j] * wolff.r[n]
+            end
+            prob = 1 - exp(min(0,-2*J*ipi*ipj))
+            wolff.b[μ,i] = rand() < prob
+        end
+    end
+
+    wolff.v .= false
+    for i in lat.geom
+        if wolff.v[i]
+            continue
+        end
+        σ = rand(Bool)
+        # Flood-fill
+        wolff.v[i] = true
+        push!(wolff.q, i)
+        while !isempty(wolff.q)
+            k = pop!(wolff.q)
+            if σ
+                ip = 0.
+                for n in 1:lat.N
+                    ip += cfg.ϕ[n,k] * wolff.r[n]
+                end
+                for n in 1:lat.N
+                    cfg.ϕ[n,k] -= 2*ip*wolff.r[n]
+                end
+            end
+            for μ in 1:lat.geom.d
+                j = translate(lat.geom, k, μ, 1)
+                if wolff.b[μ,k] && !wolff.v[j]
+                    wolff.v[j] = true
+                    push!(wolff.q, j)
+                end
+
+                j = translate(lat.geom, k, μ, -1)
+                if wolff.b[μ,j] && !wolff.v[j]
+                    wolff.v[j] = true
+                    push!(wolff.q, j)
+                end
+            end
+        end
+    end
 
     # Sweep
-    # TODO
+    C = 1
     acc = 0
     tot = 0
+    for k in lat.geom
+        i = rand(1:volume(lat.geom))
+        for c in 1:C
+            for n in 1:lat.N
+                wolff.ϕp[n] = cfg.ϕ[n,i] + wolff.σ * randn()
+            end
+            # Compute local action.
+            S = action(cfg, i)
+            S′ = action(cfg, i, wolff.ϕp)
+            if rand() < exp(S-S′)
+                cfg.ϕ[:,i] .= wolff.ϕp
+                acc += 1
+            end
+            tot += 1
+        end
+    end
     return acc/tot
 end
 
