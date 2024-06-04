@@ -4,11 +4,33 @@ using Test
 
 using LatticeFieldTheories
 
-@testset "Non-allocation" begin
+@testset verbose=true "Non-allocation" begin
     @testset "Heatbath does not allocate" begin
+        lat = Scalar.IsotropicLattice(CartesianGeometry(3,5,3), 2, 0.1, 0.1)
+        cfg = rand(Scalar.Cfg{lat})
+        hb! = Scalar.Heatbath{lat}()
+        allocs = @allocations calibrate!(hb!, cfg)
+        @test allocs == 0
+        allocs = @allocations hb!(cfg)
+        @test allocs == 0
     end
 
     @testset "Wolff does not allocate" begin
+        lat = Scalar.IsotropicLattice(CartesianGeometry(3,5,3), 2, 0.1, 0.1)
+        cfg = rand(Scalar.Cfg{lat})
+        wolff! = Scalar.Wolff{lat}()
+        allocs = @allocations calibrate!(wolff!, cfg)
+        @test allocs == 0
+        allocs = @allocations wolff!(cfg)
+        @test allocs == 0
+    end
+
+    @testset "action() does not allocate" begin
+        lat = Scalar.IsotropicLattice(CartesianGeometry(3,5,3), 2, 0.1, 0.1)
+        cfg = rand(Scalar.Cfg{lat})
+        obs = Observer(lat)
+        allocs = @allocations Scalar.action(obs, cfg)
+        @test allocs == 0
     end
 end
 
