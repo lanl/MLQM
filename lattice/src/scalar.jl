@@ -62,12 +62,21 @@ function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
 end
 
 function (hb::Heatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
+    C = 1
     acc = 0
     tot = 0
     for k in lat.geom
         i = rand(1:volume(lat.geom))
-        for n in 1:1
-            # TODO
+        for c in 1:C
+            for n in 1:lat.N
+                hb.ϕp[n] = cfg.ϕ[n,i] + hb.σ * randn()
+            end
+            # Compute local action.
+            S = action(cfg, i)
+            S′ = action(cfg, i, hb.ϕp)
+            if rand() < exp(S-S′)
+                cfg.ϕ[:,i] .= hb.ϕp
+            end
         end
     end
     return acc / tot
@@ -133,12 +142,38 @@ end
 function action(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
     S::Float64 = 0.
     for i in lat.geom
-        S += lat.m² * cfg.ϕ[i]^2 / 2
-        S += lat.λ * cfg.ϕ[i]^4 / 4
+        ϕ² = 0.
+        for n in 1:lat.N
+            ϕ² += cfg.ϕ[n,i]^2
+        end
+        S += lat.m² * ϕ² / 2
+        S += lat.λ * ϕ²^2 / 4
         for j in adjacent(lat.geom, i)
             if j < i
-                S += (cfg.ϕ[i] - cfg.ϕ[j])^2 / 2.
+                for n in 1:lat.N
+                    S += (cfg.ϕ[n,i] - cfg.ϕ[n,j])^2 / 2.
+                end
             end
+        end
+    end
+    return S
+end
+
+function action(cfg::Cfg{lat}, i::Int)::Float64 where {lat}
+    return action(cfg, i, @view cfg.ϕ[:,i])
+end
+
+function action(cfg::Cfg{lat}, i::Int, ϕ′)::Float64 where {lat}
+    S::Float64 = 0.
+    ϕ² = 0.
+    for n in 1:lat.N
+        ϕ² += cfg.ϕ[n,i]^2
+    end
+    S += lat.m² * ϕ² / 2
+    S += lat.λ * ϕ²^2 / 4
+    for j in adjacent(lat.geom, i)
+        for n in 1:lat.N
+            S += (cfg.ϕ[n,i] - cfg.ϕ[n,j])^2 / 2.
         end
     end
     return S

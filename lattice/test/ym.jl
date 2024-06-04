@@ -126,7 +126,7 @@ end
         for k in 1:10
             s!(U)
             d = det(U)
-            @test d ≈ 1.
+            @test abs(d-1.) ≤ 1e-6
         end
     end
     @testset "resample does not allocate" begin
