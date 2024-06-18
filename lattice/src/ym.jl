@@ -8,7 +8,7 @@ using Random: randn!
 using ..Geometries
 using ..Lattices
 
-import ..Lattices: Sampler, calibrate!
+import ..Lattices: Sampler, Observer, calibrate!, CfgType
 
 function unitarize!(U::AbstractArray{ComplexF64,2})
     N = size(U)[1]
@@ -153,9 +153,10 @@ struct WilsonLattice
     g::Float64
     N::Int
 
-    function WilsonLattice(L::Int, g::Float64; β::Int=L, N::Int=3, d::Int=4)
-        new(CartesianGeometry(d,L,β),g,N)
-    end
+end
+
+function WilsonLattice(L::Int, g::Float64; β::Int=L, N::Int=3, d::Int=4)
+    WilsonLattice(CartesianGeometry(d,L,β),g,N)
 end
 
 wilson_beta(lat::WilsonLattice)::Float64 = 2*lat.N/(lat.g^2)
@@ -187,6 +188,8 @@ function rand(::Type{Cfg{lat}})::Cfg{lat} where {lat}
     end
     return Cfg{lat}(U)
 end
+
+CfgType(lat::WilsonLattice) = Cfg{lat}
 
 # Perform a gauge transformation.
 function gauge!(cfg::Cfg{lat}, i::Int, U::AbstractMatrix{ComplexF64}, V=nothing) where {lat}
@@ -306,7 +309,7 @@ function (phb::PseudoHeatbath{lat})(cfg::Cfg{lat})::Float64 where {lat}
     # TODO
 end
 
-function Sampler(lat::WilsonLattice, algorithm=:Heatbath)
+function Sampler(lat::WilsonLattice, algorithm::Symbol=:Heatbath)
     cfg = zero(Cfg{lat})
     if algorithm == :Heatbath
         sample! = Heatbath{lat}()
@@ -334,6 +337,7 @@ function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
     r["polyakov"] = polyakov(obs,cfg)
+    r["quarkpotential"] = quarkpotential(obs, cfg)
     return r
 end
 
@@ -467,7 +471,7 @@ end
 
 function quarkpotential!(v::Vector{Float64}, obs::Obs{lat}, cfg::Cfg{lat}) where {lat}
     for x in 1:lat.geom.L
-        v[i] = quarkpotential(obs, cfg, x)
+        v[x] = quarkpotential(obs, cfg, x)
     end
 end
 
@@ -475,6 +479,10 @@ function quarkpotential(obs::Obs{lat}, cfg::Cfg{lat})::Vector{Float64} where {la
     v = zeros(Float64, lat.geom.L)
     quarkpotential!(v, obs, cfg)
     return v
+end
+
+function Observer(lat::WilsonLattice)
+    return Obs{lat}()
 end
 
 function write(io::IO, cfg::Cfg{lat}) where {lat}
