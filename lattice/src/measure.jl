@@ -2,7 +2,7 @@ using AlgebraOfGraphics
 using ArgParse
 import CairoMakie: save as savefig
 using DataFrames
-using Statistics: mean, std
+using Statistics: mean, std, cov
 
 using LatticeFieldTheories
 
@@ -12,9 +12,14 @@ function bootstrap(f, x; K::Int=1000)
     for k in 1:K
         y[k] = f(rand(x, length(x)))
     end
-    return m, std(y)
+    return m, cov(y)
 end
-bootstrap(x; K=1000) = bootstrap(mean, x; K=K)
+bootstrap(x::Vector{T}; K=1000) where {T} = bootstrap(mean, x; K=K)
+function bootstrap(x::Matrix{T}, K=1000) where {T}
+    bootstrap(x; K=K) do y
+        mean(y, dim=1)
+    end
+end
 
 function main()
     args = let
@@ -26,6 +31,10 @@ function main()
             "-V","--vis"
                 help = "Create visualizations"
                 action = :store_true
+            "-C","--correlators"
+                help = "Save correlators to file"
+                arg_type = String
+                required = false
             "sampleDirectory"
                 help = "Directory to retrieve samples"
                 arg_type = String
@@ -44,29 +53,34 @@ function main()
     lat = eval(modelExpr)
     Cfg = CfgType(lat)
     obs = Observer(lat)
-    df = DataFrame(:n => [])
+    dat = Dict{String,Any}()
     for sample in dos
         cfg = open(sample) do f
             read(f, Cfg)
         end
         observation = obs(cfg)
-        observation["n"] = sample["n"]
-        if isempty(df)
-            for cn in keys(observation)
-                df[!,cn] = []
+        for (k,v) in observation
+            if !(k in keys(dat))
+                dat[k] = typeof(v)[]
             end
+            push!(dat[k], v)
         end
-        push!(df, observation)
     end
-    println(mean.(eachcol(df)))
+    if !isnothing(args["correlators"])
+        c00, c00cov = bootstrap(dat["cor00"])
+        open(args["correlators"], "w") do f
+            println(f, c00)
+            println(f, c00cov)
+        end
+    end
     if args["vis"]
         vdir = joinpath(args["sampleDirectory"], "vis")
         mkpath(vdir)
 
         # Mixing
-        fig = draw(data(df) * mapping(:n, :action))
-        mixing_fn = joinpath(vdir, "mixing.png")
-        savefig(mixing_fn, fig)
+        #fig = draw(data(df) * mapping(:n, :action))
+        #mixing_fn = joinpath(vdir, "mixing.png")
+        #savefig(mixing_fn, fig)
     end
 end
 

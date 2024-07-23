@@ -481,6 +481,13 @@ function quarkpotential(obs::Obs{lat}, cfg::Cfg{lat})::Vector{Float64} where {la
     return v
 end
 
+function glueball(obs::Obs{lat}, cfg::Cfg{lat}, shape::Symbol)::ComplexF64 where {lat}
+    # TODO
+end
+
+function glueball(obs::Obs{lat}, cfg::Cfg{lat}, ::Val{:Plaq}) where {lat}
+end
+
 function Observer(lat::WilsonLattice)
     return Obs{lat}()
 end

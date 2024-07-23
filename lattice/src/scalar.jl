@@ -227,6 +227,7 @@ end
 function (obs::Obs{lat})(cfg::Cfg{lat})::Dict{String,Any} where {lat}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
+    r["cor00"] = correlator00(obs,cfg)
     return r
 end
 
@@ -248,6 +249,31 @@ function action(obs::Obs{lat}, cfg::Cfg{lat})::Float64 where {lat}
         end
     end
     return S
+end
+
+function correlator00(obs::Obs{lat}, cfg::Cfg{lat})::Vector{Float64} where {lat}
+    c = zeros(Float64, lat.geom.β)
+    for τ in 1:lat.geom.β
+        c[τ] = correlator00(obs, cfg, τ)
+    end
+    return c
+end
+
+function correlator00(obs::Obs{lat}, cfg::Cfg{lat}, τ::Int)::Float64 where {lat}
+    mϕ = zeros(Float64, (lat.N,lat.geom.β))
+    for i in lat.geom
+        s = coordinate(lat.geom, i, lat.geom.d)
+        mϕ[:,s] += cfg.ϕ[:,i]
+    end
+    mϕ ./= lat.geom.L^(lat.geom.d-1)
+    r = 0.
+    for s in 1:lat.geom.β
+        s′ = mod1(s+τ,lat.geom.β)
+        for n in 1:lat.N
+            r += mϕ[n,s] .* mϕ[n,s′]
+        end
+    end
+    return r/lat.geom.β
 end
 
 function action(cfg::Cfg{lat}, i::Int)::Float64 where {lat}

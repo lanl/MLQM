@@ -13,7 +13,7 @@ function main()
                 arg_type = String
                 required = true
             "model"
-                help = "Model specification"
+                help = "Model specification file"
                 arg_type = String
                 required = true
             "-S","--samples"
@@ -31,25 +31,38 @@ function main()
             "-A","--algorithm"
                 help = "Sampling algorithm"
                 arg_type = String
+            "-D","--define"
+                help = "Set variable in model evaluation"
+                arg_type = String
+                action = :append_arg
         end
         parse_args(s)
     end
 
     start = now()
 
-    modelExpr = Meta.parse(args["model"])
-    lat = eval(modelExpr)
-    latmeta = Dict("START" => start,
-                   "MACHINE" => Sys.MACHINE,
-                   "lattice" => modelExpr,
-                  )
-    dos = DOS(args["sampleDirectory"], latmeta)
-
+    modelModule = Module()
+    Base.eval(modelModule, :(using LatticeFieldTheories))
+    for defstr in args["define"]
+        varname, val = split(defstr, "=")
+        varsym = Symbol(varname)
+        valexp = Meta.parse(val)
+        Base.eval(modelModule, :($varsym = $valexp))
+    end
+    modelExpr = Meta.parse(read(args["model"], String))
+    lat = Base.eval(modelModule, modelExpr)
     sample!, cfg = if isnothing(args["algorithm"])
         Sampler(lat)
     else
         Sampler(lat, args["algorithm"])
     end
+
+    latmeta = Dict("START" => start,
+                   "MACHINE" => Sys.MACHINE,
+                   "lattice" => lat,
+                  )
+    dos = DOS(args["sampleDirectory"], latmeta)
+
     calibrate!(sample!, cfg)
     for s in 1:args["skip"]
         sample!(cfg)
