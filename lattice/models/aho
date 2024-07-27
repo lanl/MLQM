@@ -1,1 +1,1 @@
-Scalar.IsotropicLattice(CartesianGeometry(1, L, beta), 1, m2, lambda)
+Scalar.IsotropicLattice(CartesianGeometry(1, beta), 1, m2, lambda)

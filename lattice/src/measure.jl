@@ -31,8 +31,16 @@ function main()
             "-V","--vis"
                 help = "Create visualizations"
                 action = :store_true
+            "-O","--observable"
+                help = "Print particular observable"
+                arg_type = String
+                required = false
             "-C","--correlators"
                 help = "Save correlators to file"
+                arg_type = String
+                required = false
+            "-M","--measurements"
+                help = "Directory for writing measurements"
                 arg_type = String
                 required = false
             "sampleDirectory"
@@ -49,6 +57,10 @@ function main()
             println("# $k $v")
         end
     end
+    if !isnothing(args["measurements"])
+        mmeta = Dict{String,Any}()
+        mdos = DOS(args["measurements"], mmeta)
+    end
     modelExpr = Meta.parse(dos["lattice"])
     lat = eval(modelExpr)
     Cfg = CfgType(lat)
@@ -64,6 +76,17 @@ function main()
                 dat[k] = typeof(v)[]
             end
             push!(dat[k], v)
+        end
+        # Write measurements
+        if !isnothing(args["measurements"])
+            fn = "measured-$(basename(sample.filename))"
+            fmeta = Dict{String,Any}()
+            save(fn, mdos, fmeta) do f
+                println(f, observation)
+            end
+        end
+        if !isnothing(args["observable"])
+            println(observation[args["observable"]])
         end
     end
     if !isnothing(args["correlators"])
