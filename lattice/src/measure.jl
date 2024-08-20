@@ -6,6 +6,7 @@ using Statistics: mean, std, cov
 
 using LatticeFieldTheories
 
+#=
 function bootstrap(f, x; K::Int=1000)
     m = f(x)
     y = Vector{typeof(m)}(undef, K)
@@ -20,6 +21,16 @@ function bootstrap(x::Matrix{T}, K=1000) where {T}
         mean(y, dim=1)
     end
 end
+=#
+function bootstrap(f, x; K::Int=1000)
+    m = f(x)
+    y = Vector{typeof(m)}(undef, K)
+    for k in 1:K
+        y[k] = f(rand(x, length(x)))
+    end
+    return m, std(y)
+end
+bootstrap(x::Vector{T}; K=1000) where {T} = bootstrap(mean, x; K=K)
 
 function main()
     args = let
@@ -87,13 +98,22 @@ function main()
         end
         if !isnothing(args["observable"])
             println(observation[args["observable"]])
+            flush(stdout)
         end
     end
     if !isnothing(args["correlators"])
-        c00, c00cov = bootstrap(dat["cor00"])
+        if false
+            c00, c00cov = bootstrap(dat["cor00"])
+            open(args["correlators"], "w") do f
+                println(f, c00)
+                println(f, c00cov)
+            end
+        end
         open(args["correlators"], "w") do f
-            println(f, c00)
-            println(f, c00cov)
+            coravg, corerr = bootstrap(dat["cor00"])
+            for (n,(cavg,cerr)) in enumerate(zip(coravg,corerr))
+                println(f, "$n $cavg $cerr")
+            end
         end
     end
     if args["vis"]

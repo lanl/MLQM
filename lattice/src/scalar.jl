@@ -52,11 +52,11 @@ end
 
 function calibrate!(hb!::Heatbath{lat}, cfg::Cfg{lat}) where {lat}
     ar = hb!(cfg)
-    while ar < 0.3 || ar > 0.5
+    while ar < 0.3 || ar > 0.4
         if ar < 0.3
             hb!.σ *= 0.95
         end
-        if ar > 0.5
+        if ar > 0.4
             hb!.σ *= 1.05
         end
         ar = hb!(cfg)
@@ -114,11 +114,11 @@ end
 
 function calibrate!(wolff!::Wolff{lat}, cfg::Cfg{lat}) where {lat}
     ar = wolff!(cfg)
-    while ar < 0.3 || ar > 0.5
+    while ar < 0.3 || ar > 0.4
         if ar < 0.3
             wolff!.σ *= 0.95
         end
-        if ar > 0.5
+        if ar > 0.4
             wolff!.σ *= 1.05
         end
         ar = wolff!(cfg)
@@ -190,7 +190,7 @@ function (wolff::Wolff{lat})(cfg::Cfg{lat})::Float64 where {lat}
     C = 1
     acc = 0
     tot = 0
-    for k in lat.geom
+    for k in 1:5*volume(lat.geom)
         i = rand(1:volume(lat.geom))
         for c in 1:C
             for n in 1:lat.N
