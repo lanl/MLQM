@@ -210,7 +210,8 @@ function (wolff::Wolff{lat})(cfg::Cfg{lat})::Float64 where {lat}
 end
 
 function Sampler(lat::IsotropicLattice, algorithm::Symbol=:Heatbath)
-    cfg = zero(Cfg{lat})
+    #cfg = zero(Cfg{lat})
+    cfg = rand(Cfg{lat})
     if algorithm == :Heatbath
         sample! = Heatbath{lat}()
     elseif algorithm == :Wolff
