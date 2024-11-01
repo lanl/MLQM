@@ -74,6 +74,10 @@ function main()
                 help = "Only store observables"
                 arg_type = String
                 required = false
+            "--time"
+                help = "Time limit"
+                arg_type = Float64
+                default = Inf
         end
         parse_args(s)
     end
@@ -133,7 +137,12 @@ function main()
         end
         obs = Observer(lat)
         try
+            tstart = time()
             while true
+                if time() - tstart > args["time"]
+                    saveMeasurements()
+                    break
+                end
                 for s in 1:args["steps"]
                     sample!(cfg)
                 end

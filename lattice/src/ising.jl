@@ -146,6 +146,7 @@ end
 function (obs::Obs{lat})(cfg::Cfg{geom})::Dict{String,Any} where {lat,geom}
     r = Dict{String,Any}()
     r["action"] = action(obs,cfg)
+    r["susceptibility"] = susceptibility(obs,cfg)
     return r
 end
 
@@ -164,6 +165,23 @@ function action(obs::Obs{lat}, cfg::Cfg{geom})::Float64 where {lat,geom}
         end
     end
     return S
+end
+
+function susceptibility(obs::Obs{lat}, cfg::Cfg{geom})::Float64 where {lat,geom}
+    s::Float64 = 0.
+    for i in geom
+        for j in adjacent(geom, i)
+            # Only include each pair once.
+            if j < i
+                if cfg.σ[j] == cfg.σ[i]
+                    s -= 1/volume(geom)
+                else
+                    s += 1/volume(geom)
+                end
+            end
+        end
+    end
+    return s
 end
 
 function Observer(lat::IsotropicLattice)
